@@ -2,6 +2,7 @@
 import { ref, reactive, toRefs, onMounted, watch, nextTick } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import Editor from '@/components/Editor';
+import draggable from 'vuedraggable'
 
 // 对话框标题
 const title = ref('');
@@ -564,6 +565,17 @@ const cancel = () => {
   reset();
 };
 
+// 处理拖拽开始
+const onDragStart = () => {
+  console.log('开始拖拽');
+};
+
+// 处理拖拽结束
+const onDragEnd = () => {
+  console.log('拖拽结束，新顺序已保存');
+  ElMessage.success('媒体文件顺序已更新');
+};
+
 onMounted(() => {
   getList();
 });
@@ -768,24 +780,41 @@ onMounted(() => {
           <div class="media-upload-container">
             <!-- 已上传的媒体文件列表 -->
             <div class="media-list">
-              <div v-for="(item, index) in form.mediaList" :key="index" class="media-item">
-                <div class="media-preview">
-                  <video v-if="item.type === 'video'" :src="item.url" controls class="media-preview-content"></video>
-                  <img v-else :src="item.url" class="media-preview-content" />
-                </div>
-                <div class="media-info">
-                  <div class="media-name">{{ item.name }}</div>
-                  <div class="media-type-tag">
-                    <el-tag :type="item.type === 'video' ? 'danger' : 'success'">
-                      {{ item.type === 'video' ? '视频' : '图片' }}
-                    </el-tag>
+              <draggable 
+                v-model="form.mediaList" 
+                item-key="uid"
+                :component-data="{
+                  tag: 'div',
+                  class: 'media-grid'
+                }"
+                handle=".drag-handle"
+                ghost-class="ghost-item"
+                animation="300"
+                @start="onDragStart"
+                @end="onDragEnd"
+              >
+                <template #item="{element, index}">
+                  <div class="media-item">
+                    <div class="media-preview">
+                      <video v-if="element.type === 'video'" :src="element.url" controls class="media-preview-content"></video>
+                      <img v-else :src="element.url" class="media-preview-content" />
+                    </div>
+                    <div class="media-info">
+                      <div class="media-name">{{ element.name }}</div>
+                      <div class="media-type-tag">
+                        <el-tag :type="element.type === 'video' ? 'danger' : 'success'">
+                          {{ element.type === 'video' ? '视频' : '图片' }}
+                        </el-tag>
+                      </div>
+                      <el-input v-model="element.externalLink" placeholder="外链地址（可选）" size="small" class="mt10" />
+                    </div>
+                    <div class="media-actions">
+                      <el-button type="primary" icon="Rank" circle class="drag-handle" title="拖动调整顺序"></el-button>
+                      <el-button type="danger" icon="Delete" circle @click="removeMedia(index)"></el-button>
+                    </div>
                   </div>
-                  <el-input v-model="item.externalLink" placeholder="外链地址（可选）" size="small" class="mt10" />
-                </div>
-                <div class="media-actions">
-                  <el-button type="danger" icon="Delete" circle @click="removeMedia(index)"></el-button>
-                </div>
-              </div>
+                </template>
+              </draggable>
             </div>
             
             <!-- 上传进度显示 -->
@@ -849,22 +878,34 @@ onMounted(() => {
   margin-bottom: 20px;
 }
 .media-list {
+  display: block;
+  width: 100%;
+  margin-bottom: 20px;
+}
+
+.media-grid {
   display: flex;
   flex-wrap: wrap;
-  gap: 15px;
-  margin-bottom: 15px;
+  gap: 10px;
+  width: 100%;
 }
+
 .media-item {
   width: calc(33.33% - 10px);
-  border: 1px solid #ebeef5;
+  border: 1px solid #dcdfe6;
   border-radius: 4px;
   padding: 10px;
   position: relative;
+  display: flex;
+  flex-direction: column;
+  background-color: #fff;
   transition: all 0.3s;
 }
+
 .media-item:hover {
   box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
 }
+
 .media-preview {
   height: 150px;
   display: flex;
@@ -925,5 +966,16 @@ onMounted(() => {
 }
 .mt10 {
   margin-top: 10px;
+}
+
+.ghost-item {
+  opacity: 0.5;
+  background: #c8ebfb;
+  border: 1px dashed #409eff;
+}
+
+.drag-handle {
+  cursor: move;
+  margin-right: 8px;
 }
 </style>

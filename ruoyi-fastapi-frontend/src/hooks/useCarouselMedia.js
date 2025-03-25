@@ -119,10 +119,21 @@ export default function useCarouselMedia(form) {
 
     console.log('文件变化:', file.name, '当前媒体列表长度:', form.value.mediaList.length);
 
-    // 如果已经有9个或以上的文件，则不再添加
-    if (form.value.mediaList.length >= 9) {
-      ElMessage.warning('已达到最大上传数量9个，无法继续添加');
+    // 检查文件数量限制
+    if (!checkFileLimit()) {
       return;
+    }
+
+    // 检查是否是视频文件
+    const isVideo = file.raw.type.startsWith('video/');
+    
+    // 如果是视频文件，检查是否已经有视频
+    if (isVideo) {
+      const existingVideos = form.value.mediaList.filter(item => item.type === 'video');
+      if (existingVideos.length > 0) {
+        ElMessage.warning('只能上传一个视频文件');
+        return;
+      }
     }
 
     // 检查是否已经存在相同文件（根据文件名和大小）
@@ -132,7 +143,25 @@ export default function useCarouselMedia(form) {
     );
     
     if (isDuplicate) {
-      ElMessage.warning(`文件 ${file.name} 已存在，请勿重复添加`);
+      ElMessageBox.confirm(`文件 ${file.name} 已存在，是否覆盖?`, '提示', {
+        confirmButtonText: '覆盖',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }).then(() => {
+        // 找到并删除重复的文件
+        const index = form.value.mediaList.findIndex(item => 
+          item.name === file.name && 
+          (!item.size || item.size === file.raw.size)
+        );
+        if (index !== -1) {
+          form.value.mediaList.splice(index, 1);
+        }
+        // 处理当前文件，并设置覆盖标志
+        processFile(file, true);
+      }).catch(() => {
+        // 用户选择不覆盖，不做任何操作
+        ElMessage.info('已取消覆盖');
+      });
       return;
     }
 
@@ -141,7 +170,7 @@ export default function useCarouselMedia(form) {
   };
 
   // 处理单个文件的上传和预览
-  const processFile = (file) => {
+  const processFile = (file, overwrite = false) => {
     if (!file || !file.raw) return false;
     
     // 检查文件大小限制
@@ -173,7 +202,7 @@ export default function useCarouselMedia(form) {
     simulateUploadProgress(file.uid);
     
     // 立即上传文件，获取真实URL
-    uploadMedia(file.raw).then(response => {
+    uploadMedia(file.raw, overwrite).then(response => {
       console.log('文件上传响应:', response);
       
       // 检查响应结构，获取文件路径
@@ -210,8 +239,8 @@ export default function useCarouselMedia(form) {
         ElMessage.warning(`文件 ${file.name} 上传成功，但无法获取URL，将使用临时URL`);
       }
       
-      // 添加到媒体列表用于预览
-      form.value.mediaList.push({
+      // 创建媒体项
+      const mediaItem = {
         uid: file.uid,
         name: file.name,
         url: fullUrl,
@@ -220,7 +249,24 @@ export default function useCarouselMedia(form) {
         externalLink: '',
         // 如果使用的是真实URL，则不需要保存原始文件对象
         file: fullUrl.startsWith('blob:') ? file.raw : null
-      });
+      };
+      
+      // 如果是视频，将其放在第一位
+      if (isVideo) {
+        // 更新所有现有项的排序值
+        form.value.mediaList.forEach(item => {
+          item.sort = (item.sort || 0) + 1;
+        });
+        
+        // 将视频添加到列表开头
+        form.value.mediaList.unshift(mediaItem);
+      } else {
+        // 图片添加到列表末尾
+        form.value.mediaList.push(mediaItem);
+      }
+      
+      // 重新排序媒体列表（确保视频始终在前）
+      sortMediaList();
 
       console.log(`添加文件: ${file.name}, 类型: ${isVideo ? 'video' : 'image'}, URL: ${fullUrl}, 总数: ${form.value.mediaList.length}`);
 
@@ -235,6 +281,18 @@ export default function useCarouselMedia(form) {
     });
     
     return true;
+  };
+  
+  // 对媒体列表进行排序（视频在前，图片在后）
+  const sortMediaList = () => {
+    if (!form.value.mediaList || form.value.mediaList.length === 0) return;
+    
+    // 先按类型排序（视频在前），再按sort值排序
+    form.value.mediaList.sort((a, b) => {
+      if (a.type === 'video' && b.type !== 'video') return -1;
+      if (a.type !== 'video' && b.type === 'video') return 1;
+      return (a.sort || 0) - (b.sort || 0);
+    });
   };
 
   // 移除媒体文件
@@ -342,14 +400,14 @@ export default function useCarouselMedia(form) {
   return {
     pendingUploadFiles,
     uploadProgress,
-    beforeUpload,
-    handleExceed,
-    checkFileLimit,
     handleFileChange,
     processFile,
     removeMedia,
     uploadFiles,
     resetMedia,
-    getFullMediaUrl
+    getFullMediaUrl,
+    beforeUpload,
+    handleExceed,
+    checkFileLimit
   };
 }

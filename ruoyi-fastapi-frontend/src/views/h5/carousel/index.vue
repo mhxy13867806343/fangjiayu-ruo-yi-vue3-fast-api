@@ -441,7 +441,6 @@ onMounted(() => {
                           {{ element.type === 'video' ? '视频' : '图片' }}
                         </el-tag>
                       </div>
-                      <el-input v-model="element.externalLink" placeholder="外链地址（可选）" size="small" class="mt10" />
                     </div>
                     <div class="media-actions">
                       <el-button type="primary" icon="Rank" circle class="drag-handle" title="拖动调整顺序"></el-button>

@@ -13,12 +13,13 @@ class CommonService:
     """
 
     @classmethod
-    async def upload_service(cls, request: Request, file: UploadFile):
+    async def upload_service(cls, request: Request, file: UploadFile, overwrite: bool = False):
         """
         通用上传service
 
         :param request: Request对象
         :param file: 上传文件对象
+        :param overwrite: 是否覆盖同名文件
         :return: 上传结果
         """
         if not UploadUtil.check_file_extension(file):
@@ -34,19 +35,21 @@ class CommonService:
             # 使用原始文件名，不添加时间戳和随机字符
             filename = file.filename
             
-            # 检查文件是否已存在，如果存在则添加计数器
+            # 检查文件是否已存在
             filepath = os.path.join(dir_path, filename)
-            counter = 1
-            name_parts = filename.rsplit(".", 1)
             
-            # 如果文件已存在，添加计数器
-            while os.path.exists(filepath):
-                if len(name_parts) > 1:
-                    filename = f"{name_parts[0]}_{counter}.{name_parts[1]}"
-                else:
-                    filename = f"{name_parts[0]}_{counter}"
-                filepath = os.path.join(dir_path, filename)
-                counter += 1
+            # 如果文件已存在且不覆盖，则添加计数器
+            if os.path.exists(filepath) and not overwrite:
+                counter = 1
+                name_parts = filename.rsplit(".", 1)
+                
+                while os.path.exists(filepath):
+                    if len(name_parts) > 1:
+                        filename = f"{name_parts[0]}_{counter}.{name_parts[1]}"
+                    else:
+                        filename = f"{name_parts[0]}_{counter}"
+                    filepath = os.path.join(dir_path, filename)
+                    counter += 1
             
             with open(filepath, 'wb') as f:
                 # 流式写出大型文件，这里的10代表10MB

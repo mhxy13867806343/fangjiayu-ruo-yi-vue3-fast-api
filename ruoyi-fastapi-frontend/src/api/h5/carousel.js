@@ -56,16 +56,16 @@ export function changeCarouselStatus(carouselId, status) {
 }
 
 // 上传媒体文件
-export function uploadMedia(file) {
-  const formData = new FormData()
-  formData.append('file', file)
+export function uploadMedia(file, overwrite = false) {
+  const formData = new FormData();
+  formData.append('file', file);
   
   return request({
-    url: '/common/upload',
+    url: '/common/upload?overwrite=' + overwrite,
     method: 'post',
     data: formData,
     headers: {
       'Content-Type': 'multipart/form-data'
     }
-  })
+  });
 }

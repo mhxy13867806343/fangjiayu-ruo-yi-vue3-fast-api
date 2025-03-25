@@ -10,7 +10,7 @@ from typing import List, Optional, Dict, Any, Tuple
 
 from module_h5.entity.do.carousel_do import SysCarousel, SysCarouselMedia
 from module_h5.entity.vo.carousel_vo import CarouselModel, CarouselMediaModel, CarouselPageQueryModel
-from utils.page_util import PageResponseModel
+from utils.page_util import PageResponseModel, PageUtil
 import os
 import requests
 import uuid
@@ -57,74 +57,83 @@ class CarouselService:
         if hasattr(carousel_query, 'position') and carousel_query.position:
             where_list.append(SysCarousel.position == carousel_query.position)
         
-        # 时间范围
-        if hasattr(carousel_query, 'begin_time') and carousel_query.begin_time:
-            where_list.append(SysCarousel.create_time >= carousel_query.begin_time)
-        
-        if hasattr(carousel_query, 'end_time') and carousel_query.end_time:
-            where_list.append(SysCarousel.create_time <= carousel_query.end_time)
-        
-        # 计算总数
-        count_stmt = select(func.count(SysCarousel.id))
-        if where_list:
-            count_stmt = count_stmt.where(and_(*where_list))
-        
-        count_result = await db.execute(count_stmt)
-        total = count_result.scalar()
+        # 处理日期范围参数
+        if hasattr(carousel_query, 'date_range') and carousel_query.date_range and len(carousel_query.date_range) == 2:
+            try:
+                start_date = datetime.fromisoformat(carousel_query.date_range[0].replace('Z', '+00:00'))
+                end_date = datetime.fromisoformat(carousel_query.date_range[1].replace('Z', '+00:00'))
+                # 设置结束日期为当天的23:59:59
+                end_date = end_date.replace(hour=23, minute=59, second=59)
+                
+                where_list.append(SysCarousel.create_time >= start_date)
+                where_list.append(SysCarousel.create_time <= end_date)
+            except (ValueError, TypeError):
+                # 如果日期格式不正确，忽略这个条件
+                pass
+        else:
+            # 时间范围
+            if hasattr(carousel_query, 'begin_time') and carousel_query.begin_time:
+                where_list.append(SysCarousel.create_time >= carousel_query.begin_time)
+            
+            if hasattr(carousel_query, 'end_time') and carousel_query.end_time:
+                where_list.append(SysCarousel.create_time <= carousel_query.end_time)
         
         # 构建查询语句
-        stmt = select(SysCarousel)
+        query = select(SysCarousel)
         if where_list:
-            stmt = stmt.where(and_(*where_list))
+            query = query.where(and_(*where_list))
         
         # 排序
-        stmt = stmt.order_by(SysCarousel.sort.asc(), SysCarousel.id.desc())
+        query = query.order_by(SysCarousel.sort.asc(), SysCarousel.id.desc())
         
-        # 分页
-        if is_page:
-            page_num = getattr(carousel_query, 'page_num', 1)
-            page_size = getattr(carousel_query, 'page_size', 10)
-            stmt = stmt.offset((page_num - 1) * page_size).limit(page_size)
-        
-        # 执行查询
-        result = await db.execute(stmt)
-        carousel_list = result.scalars().all()
+        # 使用与角色管理相同的分页方法
+        result = await PageUtil.paginate(db, query, carousel_query.page_num, carousel_query.page_size, is_page)
         
         # 查询媒体信息
         carousel_models = []
+        
+        # 判断是否有分页结果
+        if is_page and hasattr(result, 'rows'):
+            carousel_list = result.rows
+        else:
+            carousel_list = result  # 如果没有分页，直接使用结果
+            
         for carousel in carousel_list:
             # 创建轮播图模型
             carousel_dict = {
-                "id": carousel.id,
-                "title": carousel.title,
-                "type": carousel.type,
-                "category": carousel.category,
-                "position": carousel.position,
-                "isExternalLink": carousel.is_external_link,
-                "url": carousel.url,
-                "sort": carousel.sort,
-                "startTime": carousel.start_time,
-                "endTime": carousel.end_time,
-                "desc": carousel.desc,
-                "remark": carousel.remark,
-                "status": carousel.status,
+                "id": carousel["id"] if isinstance(carousel, dict) else carousel.id,
+                "title": carousel["title"] if isinstance(carousel, dict) else carousel.title,
+                "type": carousel["type"] if isinstance(carousel, dict) else carousel.type,
+                "category": carousel["category"] if isinstance(carousel, dict) else carousel.category,
+                "position": carousel["position"] if isinstance(carousel, dict) else carousel.position,
+                "url": carousel["url"] if isinstance(carousel, dict) else carousel.url,
+                "sort": carousel["sort"] if isinstance(carousel, dict) else carousel.sort,
+                "status": carousel["status"] if isinstance(carousel, dict) else carousel.status,
+                "startTime": carousel["startTime"] if isinstance(carousel, dict) else (carousel.start_time.strftime('%Y-%m-%d %H:%M:%S') if carousel.start_time else None),
+                "endTime": carousel["endTime"] if isinstance(carousel, dict) else (carousel.end_time.strftime('%Y-%m-%d %H:%M:%S') if carousel.end_time else None),
+                "createTime": carousel["createTime"] if isinstance(carousel, dict) else (carousel.create_time.strftime('%Y-%m-%d %H:%M:%S') if carousel.create_time else None),
+                "createBy": carousel["createBy"] if isinstance(carousel, dict) else carousel.create_by,
+                "updateTime": carousel["updateTime"] if isinstance(carousel, dict) else (carousel.update_time.strftime('%Y-%m-%d %H:%M:%S') if carousel.update_time else None),
+                "updateBy": carousel["updateBy"] if isinstance(carousel, dict) else carousel.update_by,
+                "remark": carousel["remark"] if isinstance(carousel, dict) else carousel.remark,
                 "mediaList": []
             }
             
-            # 查询媒体列表
-            media_stmt = select(SysCarouselMedia).where(SysCarouselMedia.carousel_id == carousel.id)
+            # 查询媒体信息
+            carousel_id = carousel["id"] if isinstance(carousel, dict) else carousel.id
+            media_stmt = select(SysCarouselMedia).where(SysCarouselMedia.carousel_id == carousel_id).order_by(SysCarouselMedia.sort)
             media_result = await db.execute(media_stmt)
             media_list = media_result.scalars().all()
             
-            # 转换为媒体模型列表
+            # 创建媒体模型列表
             media_models = []
             for media in media_list:
                 media_dict = {
                     "id": media.id,
                     "carouselId": media.carousel_id,
                     "name": media.name,
-                    "url": media.url,
-                    "type": media.type,
+                    "mediaType": media.type,
+                    "mediaUrl": media.url,
                     "externalLink": media.external_link,
                     "sort": media.sort
                 }
@@ -138,13 +147,11 @@ class CarouselService:
         
         # 返回分页数据
         if is_page:
-            page_num = getattr(carousel_query, 'page_num', 1)
-            page_size = getattr(carousel_query, 'page_size', 10)
             return PageResponseModel(
-                total=total,
+                total=result.total,
                 rows=carousel_models,
-                page_num=page_num,
-                page_size=page_size
+                page_num=carousel_query.page_num,
+                page_size=carousel_query.page_size
             )
         else:
             return carousel_models
@@ -196,8 +203,8 @@ class CarouselService:
                 "id": media.id,
                 "carouselId": media.carousel_id,
                 "name": media.name,
-                "url": media.url,
-                "type": media.type,
+                "mediaType": media.type,
+                "mediaUrl": media.url,
                 "externalLink": media.external_link,
                 "sort": media.sort
             }
@@ -254,8 +261,8 @@ class CarouselService:
                 db_media = SysCarouselMedia(
                     carousel_id=carousel_obj.id,
                     name=media.name,
-                    url=url,
                     type=media.type,
+                    url=url,
                     external_link=media.external_link,
                     sort=media.sort,
                     create_time=datetime.now()
@@ -320,8 +327,8 @@ class CarouselService:
                 db_media = SysCarouselMedia(
                     carousel_id=db_carousel.id,
                     name=media.name,
-                    url=url,
                     type=media.type,
+                    url=url,
                     external_link=media.external_link,
                     sort=media.sort,
                     create_time=datetime.now(),
@@ -385,8 +392,8 @@ class CarouselService:
                 db_media = SysCarouselMedia(
                     carousel_id=db_carousel.id,
                     name=media.name,
-                    url=url,
                     type=media.type,
+                    url=url,
                     external_link=media.external_link,
                     sort=media.sort,
                     create_time=datetime.now()

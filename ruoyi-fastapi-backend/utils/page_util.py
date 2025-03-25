@@ -45,8 +45,46 @@ class PageUtil:
         has_next = True if math.ceil(len(data_list) / page_size) > page_num else False
 
         result = PageResponseModel(
-            rows=paginated_data, pageNum=page_num, pageSize=page_size, total=len(data_list), hasNext=has_next
+            rows=paginated_data, page_num=page_num, page_size=page_size, total=len(data_list), has_next=has_next
         )
+
+        return result
+
+    @classmethod
+    async def get_page_data(cls, db: AsyncSession, query: Select, page_num: int, page_size: int, is_page: bool = True):
+        """
+        输入查询语句和分页信息，返回分页数据列表结果
+
+        :param db: 数据库会话
+        :param query: 查询语句
+        :param page_num: 当前页码
+        :param page_size: 当前页面数据量
+        :param is_page: 是否分页
+        :return: 分页数据对象
+        """
+        if is_page:
+            # 计算总数
+            count_query = select(func.count()).select_from(query.subquery())
+            total = await db.scalar(count_query)
+            
+            # 分页查询
+            paginated_query = query.offset((page_num - 1) * page_size).limit(page_size)
+            query_result = await db.execute(paginated_query)
+            paginated_data = query_result.scalars().all()
+            
+            # 计算是否有下一页
+            has_next = math.ceil(total / page_size) > page_num
+            result = PageResponseModel(
+                rows=CamelCaseUtil.transform_result(paginated_data),
+                page_num=page_num,
+                page_size=page_size,
+                total=total,
+                has_next=has_next,
+            )
+        else:
+            query_result = await db.execute(query)
+            no_paginated_data = query_result.scalars().all()
+            result = CamelCaseUtil.transform_result(no_paginated_data)
 
         return result
 
@@ -74,10 +112,10 @@ class PageUtil:
             has_next = math.ceil(total / page_size) > page_num
             result = PageResponseModel(
                 rows=CamelCaseUtil.transform_result(paginated_data),
-                pageNum=page_num,
-                pageSize=page_size,
+                page_num=page_num,
+                page_size=page_size,
                 total=total,
-                hasNext=has_next,
+                has_next=has_next,
             )
         else:
             query_result = await db.execute(query)
@@ -90,27 +128,3 @@ class PageUtil:
             result = CamelCaseUtil.transform_result(no_paginated_data)
 
         return result
-
-
-def get_page_obj(data_list: List, page_num: int, page_size: int):
-    """
-    输入数据列表data_list和分页信息，返回分页数据列表结果
-
-    :param data_list: 原始数据列表
-    :param page_num: 当前页码
-    :param page_size: 当前页面数据量
-    :return: 分页数据对象
-    """
-    # 计算起始索引和结束索引
-    start = (page_num - 1) * page_size
-    end = page_num * page_size
-
-    # 根据计算得到的起始索引和结束索引对数据列表进行切片
-    paginated_data = data_list[start:end]
-    has_next = True if math.ceil(len(data_list) / page_size) > page_num else False
-
-    result = PageResponseModel(
-        rows=paginated_data, pageNum=page_num, pageSize=page_size, total=len(data_list), hasNext=has_next
-    )
-
-    return result

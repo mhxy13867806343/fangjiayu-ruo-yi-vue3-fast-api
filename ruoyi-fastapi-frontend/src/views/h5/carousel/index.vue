@@ -388,7 +388,9 @@ onMounted(() => {
                 @end="onDragEnd"
               >
                 <template #item="{element, index}">
-                  <div class="media-item">
+                  <div class="media-item" :class="[form.mediaList.length==1?'media-item-01'
+                  :form.mediaList.length==2?'media-item-02':'media-item-03'
+                  ]">
                     <div class="media-preview">
                       <video v-if="element.type === 'video'" :src="element.url" controls class="media-preview-content"></video>
                       <img v-else :src="element.url" class="media-preview-content" />
@@ -501,7 +503,15 @@ onMounted(() => {
   background-color: #fff;
   transition: all 0.3s;
 }
-
+.media-item-01{
+  width: calc(100% - 10px);
+}
+.media-item-02{
+  width: calc(50% - 10px);
+}
+.media-item-03{
+  width: calc(33.33% - 10px);
+}
 .media-item:hover {
   box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
 }

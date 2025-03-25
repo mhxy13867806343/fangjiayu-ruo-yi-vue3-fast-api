@@ -58,10 +58,10 @@ class CarouselService:
             where_list.append(SysCarousel.position == carousel_query.position)
         
         # 处理日期范围参数
-        if hasattr(carousel_query, 'date_range') and carousel_query.date_range and len(carousel_query.date_range) == 2:
+        if hasattr(carousel_query, 'begin_time') and carousel_query.begin_time and hasattr(carousel_query, 'end_time') and carousel_query.end_time:
             try:
-                start_date = datetime.fromisoformat(carousel_query.date_range[0].replace('Z', '+00:00'))
-                end_date = datetime.fromisoformat(carousel_query.date_range[1].replace('Z', '+00:00'))
+                start_date = datetime.fromisoformat(carousel_query.begin_time.replace('Z', '+00:00'))
+                end_date = datetime.fromisoformat(carousel_query.end_time.replace('Z', '+00:00'))
                 # 设置结束日期为当天的23:59:59
                 end_date = end_date.replace(hour=23, minute=59, second=59)
                 
@@ -70,13 +70,6 @@ class CarouselService:
             except (ValueError, TypeError):
                 # 如果日期格式不正确，忽略这个条件
                 pass
-        else:
-            # 时间范围
-            if hasattr(carousel_query, 'begin_time') and carousel_query.begin_time:
-                where_list.append(SysCarousel.create_time >= carousel_query.begin_time)
-            
-            if hasattr(carousel_query, 'end_time') and carousel_query.end_time:
-                where_list.append(SysCarousel.create_time <= carousel_query.end_time)
         
         # 构建查询语句
         query = select(SysCarousel)

@@ -24,14 +24,15 @@ export default function useCarouselList() {
   // 获取轮播图列表数据
   const getList = () => {
     loading.value = true;
-    
+    console.log ( queryParams.value.dateRange,2222 );
     listCarousel({
       pageNum: pageNum.value,
       pageSize: pageSize.value,
       title: queryParams.value.title,
       type: queryParams.value.type,
       position: queryParams.value.position,
-      dateRange: queryParams.value.dateRange
+      beginTime: queryParams.value.dateRange?queryParams.value.dateRange[0]:'',
+      endTime:  queryParams.value.dateRange?queryParams.value.dateRange[1]:''
     }).then(response => {
      const {code,total:count,rows,msg}=response
       ElMessage[code===200?'success':'error']({

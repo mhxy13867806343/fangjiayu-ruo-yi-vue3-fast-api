@@ -54,8 +54,8 @@ class CarouselPageQueryModel(BaseModel):
     type: Optional[str] = Field(None, description="轮播类型")
     position: Optional[str] = Field(None, description="显示位置")
     status: Optional[str] = Field(None, description="状态")
-    begin_time: Optional[datetime] = Field(None, description="开始时间")
-    end_time: Optional[datetime] = Field(None, description="结束时间")
+    begin_time: Optional[str] = Field(None, description="开始时间")
+    end_time: Optional[str] = Field(None, description="结束时间")
 
 
 class DeleteCarouselModel(BaseModel):

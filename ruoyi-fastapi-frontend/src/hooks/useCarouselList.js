@@ -59,7 +59,7 @@ export default function useCarouselList() {
           status: '0'
         }
       ];
-      total.value = 2;
+      total.value = carouselList.value.length;
       loading.value = false;
     }, 300);
   };

@@ -89,9 +89,9 @@ onMounted(() => {
         <el-select v-model="queryParams.type" placeholder="请选择轮播类型" clearable style="width: 200px">
           <el-option
             v-for="dict in typeOptions"
-            :key="dict.dictValue"
-            :label="dict.dictLabel"
-            :value="dict.dictValue"
+            :key="dict.value"
+            :label="dict.label"
+            :value="dict.value"
           />
         </el-select>
       </el-form-item>
@@ -183,9 +183,9 @@ onMounted(() => {
               <el-select v-model="form.type" placeholder="请选择轮播类型" style="width: 100%">
                 <el-option
                   v-for="item in typeOptions"
-                  :key="item.dictValue"
-                  :label="item.dictLabel"
-                  :value="item.dictValue"
+                   :key="item.value"
+            :label="item.label"
+            :value="item.value"
                 />
               </el-select>
             </el-form-item>

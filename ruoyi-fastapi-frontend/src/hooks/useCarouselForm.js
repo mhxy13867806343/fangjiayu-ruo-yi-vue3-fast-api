@@ -1,5 +1,7 @@
 import { ref, reactive } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
+import { useDict } from '@/utils/dict';
+import { toRefs } from 'vue';
 
 export default function useCarouselForm() {
   // 对话框标题
@@ -9,21 +11,10 @@ export default function useCarouselForm() {
   // 加载状态
   const loading = ref(false);
 
-  // 轮播类型选项
-  const typeOptions = ref([
-    { dictValue: '1', dictLabel: '普通轮播' },
-    { dictValue: '2', dictLabel: '活动轮播' },
-    { dictValue: '3', dictLabel: '推广轮播' }
-  ]);
-
-  // 分类选项
-  const categoryOptions = ref([
-    { value: '1', label: '活动' },
-    { value: '2', label: '促销' },
-    { value: '3', label: '新品' },
-    { value: '4', label: '热门' },
-    { value: '5', label: '推荐' }
-  ]);
+  // 获取字典数据
+  const { sys_carousel_type:typeOptions, sys_category:categoryOptions, sys_user_status:statusOptions } = useDict('sys_carousel_type', 'sys_category', 'sys_user_status');
+  
+  
 
   // 位置选项
   const positionOptions = ref([
@@ -36,13 +27,6 @@ export default function useCarouselForm() {
     { value: '0', label: '否' },
     { value: '1', label: '是' }
   ]);
-
-  // 状态选项
-  const statusOptions = ref([
-    { value: '0', label: '正常' },
-    { value: '1', label: '停用' }
-  ]);
-
   // 表单参数
   const form = ref({
     id: null,

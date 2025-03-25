@@ -240,6 +240,7 @@ onMounted(() => {
           plain
           icon="Plus"
           @click="handleAdd"
+          v-hasPermi="['h5:carousel:add']"
         >新增</el-button>
       </el-col>
     </el-row>
@@ -283,6 +284,7 @@ onMounted(() => {
           <el-switch
             :model-value="scope.row.status === '0'"
             @change="(val) => handleStatusChange(scope.row, val ? '0' : '1')"
+            v-hasPermi="['h5:carousel:status']"
           ></el-switch>
         </template>
       </el-table-column>
@@ -290,9 +292,11 @@ onMounted(() => {
         <template #default="scope">
           <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)"
             v-if="scope.row.status === '0' && (!scope.row.end_time || new Date(scope.row.end_time) > new Date())"
+            v-hasPermi="['h5:carousel:edit']"
           >修改</el-button>
           <el-button link type="primary" icon="Delete" @click="handleDelete(scope.row)"
             v-if="scope.row.status === '0'"
+            v-hasPermi="['h5:carousel:remove']"
           >删除</el-button>
         </template>
       </el-table-column>

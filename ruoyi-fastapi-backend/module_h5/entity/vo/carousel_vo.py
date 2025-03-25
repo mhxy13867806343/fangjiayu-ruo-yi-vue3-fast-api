@@ -67,7 +67,7 @@ class DeleteCarouselModel(BaseModel):
 
 class ChangeStatusModel(BaseModel):
     """修改状态模型"""
-    model_config = ConfigDict(alias_generator=to_camel, from_attributes=True)
+    model_config = ConfigDict(from_attributes=True)
     
     carousel_id: int = Field(..., description="轮播图ID")
     status: str = Field(..., description="状态（0正常 1停用）")

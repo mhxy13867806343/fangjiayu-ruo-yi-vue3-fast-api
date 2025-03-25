@@ -24,7 +24,6 @@ export default function useCarouselList() {
   // 获取轮播图列表数据
   const getList = () => {
     loading.value = true;
-    console.log ( queryParams.value.dateRange,2222 );
     listCarousel({
       pageNum: pageNum.value,
       pageSize: pageSize.value,
@@ -49,7 +48,6 @@ export default function useCarouselList() {
 
   // 搜索按钮操作
   const handleQuery = () => {
-    pageNum.value = 1;
     getList();
   };
 

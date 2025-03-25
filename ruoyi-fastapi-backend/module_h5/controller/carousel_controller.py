@@ -76,7 +76,7 @@ async def update_carousel(
     query_db: AsyncSession = Depends(get_db),
 ):
     """
-    更新轮播图
+    修改轮播图
     """
     # 打印更新轮播图数据
     print("更新轮播图数据:", carousel_in.dict())
@@ -86,6 +86,7 @@ async def update_carousel(
     
     result = await CarouselService.update_carousel_services(
         db=query_db,
+        carousel_id=carousel_in.id,
         carousel=carousel_in,
         username="admin"
     )

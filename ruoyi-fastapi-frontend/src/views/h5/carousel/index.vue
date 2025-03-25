@@ -1,8 +1,5 @@
 <script setup name="Carousel">
-import { ref, reactive, toRefs, onMounted, watch, nextTick } from 'vue';
-import { ElMessage, ElMessageBox } from 'element-plus';
-import Editor from '@/components/Editor';
-import draggable from 'vuedraggable'
+
 
 // 对话框标题
 const title = ref('');
@@ -68,7 +65,7 @@ const form = ref({
   category: '',
   isExternalLink: '0',
   position: '1', // 默认为首页
-  url: '', 
+  url: '',
   startTime: '',
   endTime: '',
   mediaList: [],
@@ -93,10 +90,10 @@ const rules = {
   ],
   url: [
     { required: true, message: '请输入URL', trigger: 'blur' },
-    { 
-      pattern: /^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})([/\w.-]*)*\/?$/, 
-      message: '请输入有效的URL地址', 
-      trigger: 'blur' 
+    {
+      pattern: /^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})([/\w.-]*)*\/?$/,
+      message: '请输入有效的URL地址',
+      trigger: 'blur'
     }
   ],
   startTime: [
@@ -104,7 +101,7 @@ const rules = {
   ],
   endTime: [
     { required: true, message: '请选择结束时间', trigger: 'blur' },
-    { 
+    {
       validator: (rule, value, callback) => {
         if (value && form.value.startTime) {
           const startTime = new Date(form.value.startTime).getTime();
@@ -117,20 +114,20 @@ const rules = {
         } else {
           callback();
         }
-      }, 
-      trigger: 'blur' 
+      },
+      trigger: 'blur'
     }
   ],
   mediaList: [
-    { 
+    {
       validator: (rule, value, callback) => {
         if (value.length === 0) {
           callback(new Error('请至少上传一个媒体文件'));
         } else {
           callback();
         }
-      }, 
-      trigger: 'change' 
+      },
+      trigger: 'change'
     }
   ]
 };
@@ -190,7 +187,7 @@ const beforeUpload = (file) => {
     ElMessage.error('文件大小不能超过 10MB!');
     return false;
   }
-  
+
   // 检查文件类型
   const isImage = file.type.indexOf('image/') !== -1;
   const isVideo = file.type.indexOf('video/') !== -1;
@@ -198,7 +195,7 @@ const beforeUpload = (file) => {
     ElMessage.error('只能上传图片或视频文件!');
     return false;
   }
-  
+
   return true;
 };
 
@@ -211,7 +208,7 @@ const handleExceed = (files) => {
     ElMessage.warning('已达到最大上传数量9个，无法继续添加');
     return;
   }
-  
+
   // 只处理能够添加的文件数量
   const filesToProcess = Array.from(files).slice(0, remainingSlots);
   // 处理每个文件
@@ -240,26 +237,26 @@ const checkFileLimit = () => {
 // 处理文件变更
 const handleFileChange = (file, fileList) => {
   console.log('handleFileChange', file, fileList);
-  
+
   // 如果已经有9个或以上的文件，则不再添加
   if (form.value.mediaList.length >= 9) {
     ElMessage.warning('已达到最大上传数量9个，无法继续添加');
     return;
   }
-  
+
   // 计算还可以添加多少个文件
   const remainingSlots = 9 - form.value.mediaList.length;
-  
+
   // 如果用户一次性选择了多个文件
   if (fileList.length > 1) {
     // 只处理剩余槽位数量的文件
     const filesToProcess = fileList.slice(0, remainingSlots).filter(f => f.status === 'ready');
-    
+
     if (filesToProcess.length > 0) {
       if (fileList.length > remainingSlots) {
         ElMessage.info(`您选择了${fileList.length}个文件，但只能再添加${remainingSlots}个，将自动取前${remainingSlots}个文件`);
       }
-      
+
       // 处理每个文件
       filesToProcess.forEach(f => {
         processFile(f);
@@ -267,7 +264,7 @@ const handleFileChange = (file, fileList) => {
     }
     return;
   }
-  
+
   // 处理单个文件的情况
   if (file.status === 'ready') {
     processFile(file);
@@ -279,7 +276,7 @@ const processFile = (file) => {
   if (beforeUpload(file.raw)) {
     // 模拟上传进度
     simulateUploadProgress(file.uid);
-    
+
     // 本地预览
     setTimeout(() => {
       // 再次检查是否已经达到上限（可能在延迟期间已经添加了其他文件）
@@ -287,10 +284,10 @@ const processFile = (file) => {
         delete uploadProgress.value[file.uid];
         return;
       }
-      
+
       const fileUrl = URL.createObjectURL(file.raw);
       const isVideo = file.raw.type.indexOf('video/') !== -1;
-      
+
       // 添加到媒体列表用于预览
       form.value.mediaList.push({
         uid: file.uid,
@@ -300,13 +297,13 @@ const processFile = (file) => {
         externalLink: '',
         file: file.raw // 保存原始文件对象，用于后续上传
       });
-      
+
       // 添加到待上传文件列表
       pendingUploadFiles.value.push({
         uid: file.uid,
         file: file.raw
       });
-      
+
       // 清除进度
       setTimeout(() => {
         delete uploadProgress.value[file.uid];
@@ -330,7 +327,7 @@ const removeMedia = (index) => {
         pendingUploadFiles.value.splice(fileIndex, 1);
       }
     }
-    
+
     // 从预览列表中移除
     form.value.mediaList.splice(index, 1);
     ElMessage.success('删除成功');
@@ -344,11 +341,11 @@ const uploadFiles = async () => {
   if (pendingUploadFiles.value.length === 0) {
     return Promise.resolve([]);
   }
-  
+
   // 这里是模拟上传，实际项目中应该调用真实的上传API
   return new Promise((resolve) => {
     const uploadResults = [];
-    
+
     // 模拟异步上传
     setTimeout(() => {
       pendingUploadFiles.value.forEach(item => {
@@ -360,10 +357,10 @@ const uploadFiles = async () => {
           type: item.file.type.indexOf('video/') !== -1 ? 'video' : 'image'
         });
       });
-      
+
       // 清空待上传列表
       pendingUploadFiles.value = [];
-      
+
       resolve(uploadResults);
     }, 1000);
   });
@@ -484,7 +481,7 @@ const handleUpdate = (row) => {
 // 表单提交前验证
 const submitForm = () => {
   const carouselRef = ref(null);
-  
+
   nextTick(() => {
     carouselRef.value?.validate(async (valid) => {
       if (valid) {
@@ -492,14 +489,14 @@ const submitForm = () => {
           ElMessage.error('请至少上传一个媒体文件');
           return;
         }
-        
+
         // 显示提交中
         loading.value = true;
-        
+
         try {
           // 上传文件
           const uploadResults = await uploadFiles();
-          
+
           // 更新媒体列表中的URL为服务器返回的URL
           if (uploadResults.length > 0) {
             uploadResults.forEach(result => {
@@ -511,7 +508,7 @@ const submitForm = () => {
               }
             });
           }
-          
+
           // 提交表单
           if (form.value.id != null) {
             // 更新
@@ -699,7 +696,7 @@ onMounted(() => {
             </el-form-item>
           </el-col>
         </el-row>
-        
+
         <el-row>
           <el-col :span="12">
             <el-form-item label="分类" prop="category">
@@ -726,7 +723,7 @@ onMounted(() => {
             </el-form-item>
           </el-col>
         </el-row>
-        
+
         <el-row>
           <el-col :span="12">
             <el-form-item label="URL" prop="url">
@@ -745,7 +742,7 @@ onMounted(() => {
             </el-form-item>
           </el-col>
         </el-row>
-        
+
         <el-row>
           <el-col :span="24">
             <el-form-item label="有效时间" prop="startTime">
@@ -773,15 +770,15 @@ onMounted(() => {
             </el-form-item>
           </el-col>
         </el-row>
-        
+
         <el-divider content-position="center">媒体文件（最多9个，图片或视频）</el-divider>
-        
+
         <el-form-item prop="mediaList">
           <div class="media-upload-container">
             <!-- 已上传的媒体文件列表 -->
             <div class="media-list">
-              <draggable 
-                v-model="form.mediaList" 
+              <draggable
+                v-model="form.mediaList"
                 item-key="uid"
                 :component-data="{
                   tag: 'div',

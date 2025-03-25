@@ -30,8 +30,24 @@ class CommonService:
                 os.makedirs(dir_path)
             except FileExistsError:
                 pass
-            filename = f'{file.filename.rsplit(".", 1)[0]}_{datetime.now().strftime("%Y%m%d%H%M%S")}{UploadConfig.UPLOAD_MACHINE}{UploadUtil.generate_random_number()}.{file.filename.rsplit(".")[-1]}'
+            
+            # 使用原始文件名，不添加时间戳和随机字符
+            filename = file.filename
+            
+            # 检查文件是否已存在，如果存在则添加计数器
             filepath = os.path.join(dir_path, filename)
+            counter = 1
+            name_parts = filename.rsplit(".", 1)
+            
+            # 如果文件已存在，添加计数器
+            while os.path.exists(filepath):
+                if len(name_parts) > 1:
+                    filename = f"{name_parts[0]}_{counter}.{name_parts[1]}"
+                else:
+                    filename = f"{name_parts[0]}_{counter}"
+                filepath = os.path.join(dir_path, filename)
+                counter += 1
+            
             with open(filepath, 'wb') as f:
                 # 流式写出大型文件，这里的10代表10MB
                 for chunk in iter(lambda: file.file.read(1024 * 1024 * 10), b''):

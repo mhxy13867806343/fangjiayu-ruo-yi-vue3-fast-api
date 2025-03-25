@@ -34,22 +34,22 @@ export default function useCarouselSubmit(form, open, loading, getList, uploadFi
           loading.value = false;
           return false;
         }
-        
-        // 确保每个媒体项都有URL
-        formData.mediaList = formData.mediaList.map(media => {
-          // 如果URL为空，但有文件名，则构建一个基于文件名的URL
-          if (!media.url && media.name) {
-            const today = new Date();
-            const year = today.getFullYear();
-            const month = String(today.getMonth() + 1).padStart(2, '0');
-            const day = String(today.getDate()).padStart(2, '0');
-            
-            // 构建相对路径URL
-            media.url = `/profile/upload/${year}/${month}/${day}/${media.name}`;
-          }
-          return media;
-        });
       }
+      
+      // 确保每个媒体项都有URL
+      formData.mediaList = formData.mediaList.map(media => {
+        // 如果URL为空，但有文件名，则构建一个基于文件名的URL
+        if (!media.url && media.name) {
+          const today = new Date();
+          const year = today.getFullYear();
+          const month = String(today.getMonth() + 1).padStart(2, '0');
+          const day = String(today.getDate()).padStart(2, '0');
+          
+          // 构建相对路径URL
+          media.url = `/profile/upload/${year}/${month}/${day}/${media.name}`;
+        }
+        return media;
+      });
       
       // 提交表单数据
       let result;

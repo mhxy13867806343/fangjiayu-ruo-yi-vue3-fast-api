@@ -16,20 +16,10 @@ const getFullMediaUrl = (url) => {
     url = '/' + url;
   }
   
-  // 获取当前环境的API基础路径
-  const baseApi = import.meta.env.VITE_APP_BASE_API || '';
-  
-  // 使用当前页面的协议和主机名
+  // 使用当前页面的协议和主机名，但端口号固定为9099
   const protocol = window.location.protocol;
-  const host = window.location.host;
-  
-  // 如果baseApi是以/开头的相对路径，则需要拼接完整URL
-  if (baseApi.startsWith('/')) {
-    return `${protocol}//${host}${url}`;
-  } else {
-    // 如果baseApi已经是完整URL，则直接使用
-    return `${baseApi}${url}`;
-  }
+  const host = window.location.hostname;
+  return `${protocol}//${host}:9099${url}`;
 };
 
 export default function useCarouselMedia(form) {
@@ -272,97 +262,74 @@ export default function useCarouselMedia(form) {
     });
   };
 
-  // 实际上传文件（在表单提交时调用）
+  // 上传文件
   const uploadFiles = async () => {
     ensureMediaList();
     
-    // 过滤出需要上传的文件（仍然使用blob URL的文件）
-    const filesToUpload = form.value.mediaList.filter(item => 
-      item.file && item.url && item.url.startsWith('blob:')
-    );
+    // 找出所有需要上传的文件（有raw属性的项）
+    const filesToUpload = form.value.mediaList.filter(item => item.raw);
     
     if (filesToUpload.length === 0) {
-      return Promise.resolve(form.value.mediaList);
+      return [];
     }
-
-    try {
-      const uploadPromises = filesToUpload.map(async (item) => {
-        try {
-          // 调用实际的上传API
-          const response = await uploadMedia(item.file);
-          console.log('文件上传响应:', response);
+    
+    // 创建上传任务
+    const uploadTasks = filesToUpload.map(async (item, index) => {
+      try {
+        // 创建FormData对象
+        const formData = new FormData();
+        formData.append('file', item.raw);
+        
+        // 上传文件
+        const response = await uploadMedia(formData);
+        
+        if (response && response.code === 200 && response.data) {
+          // 更新媒体项的URL为服务器返回的URL
+          const mediaIndex = form.value.mediaList.findIndex(media => 
+            media.uid === item.uid || media.id === item.id
+          );
           
-          // 检查响应结构，兼容不同的返回格式
-          let fileUrl = '';
-          
-          // 处理后端返回的标准格式
-          if (response && response.is_success && response.result) {
-            // 优先使用url字段（完整URL）
-            if (response.result.url) {
-              fileUrl = response.result.url;
-            } else if (response.result.fileName) {
-              fileUrl = response.result.fileName;
-            }
-          } 
-          // 兼容其他可能的返回格式
-          else if (response && response.data) {
-            // 优先使用url字段（完整URL）
-            if (response.data.url) {
-              fileUrl = response.data.url;
-            } else if (response.data.fileName) {
-              fileUrl = response.data.fileName;
-            } else if (typeof response.data === 'string') {
-              fileUrl = response.data;
-            }
+          if (mediaIndex !== -1) {
+            // 使用服务器返回的完整URL
+            form.value.mediaList[mediaIndex].url = response.data.url;
+            // 保存服务器生成的文件名
+            form.value.mediaList[mediaIndex].serverFileName = response.data.newFileName;
+            // 更新上传状态
+            form.value.mediaList[mediaIndex].status = 'success';
           }
           
-          console.log('获取到的文件URL:', fileUrl);
-          
-          // 确保我们有完整的URL
-          const fullUrl = getFullMediaUrl(fileUrl);
-          console.log('完整的文件URL:', fullUrl);
-          
-          if (!fullUrl) {
-            console.warn('无法从响应中获取文件URL:', response);
-            return {
-              ...item,
-              uploadFailed: true
-            };
-          }
-          
-          // 更新媒体列表中的URL
-          const index = form.value.mediaList.findIndex(media => media.uid === item.uid);
-          if (index !== -1) {
-            form.value.mediaList[index].url = fullUrl;
-            form.value.mediaList[index].file = null; // 清除原始文件对象
-          }
-          
-          // 返回上传结果
           return {
             ...item,
-            url: fullUrl,
-            file: null // 清除原始文件对象
+            url: response.data.url,
+            serverFileName: response.data.newFileName,
+            status: 'success'
           };
-        } catch (error) {
-          console.error('文件上传失败:', error);
-          return {
-            ...item,
-            uploadFailed: true
-          };
+        } else {
+          throw new Error('上传失败');
         }
-      });
-
-      // 等待所有文件上传完成
-      const uploadResults = await Promise.all(uploadPromises);
-      console.log('所有文件上传结果:', uploadResults);
-      
-      // 返回完整的媒体列表（包括已经有URL的和新上传的）
-      return form.value.mediaList;
-    } catch (error) {
-      console.error('文件上传过程中发生错误:', error);
-      ElMessage.error('文件上传失败: ' + (error.message || '未知错误'));
-      return form.value.mediaList;
-    }
+      } catch (error) {
+        console.error('文件上传失败:', error);
+        
+        // 标记上传失败
+        const mediaIndex = form.value.mediaList.findIndex(media => 
+          media.uid === item.uid || media.id === item.id
+        );
+        
+        if (mediaIndex !== -1) {
+          form.value.mediaList[mediaIndex].status = 'error';
+          form.value.mediaList[mediaIndex].uploadFailed = true;
+        }
+        
+        return {
+          ...item,
+          status: 'error',
+          uploadFailed: true
+        };
+      }
+    });
+    
+    // 等待所有上传任务完成
+    return Promise.all(uploadTasks);
   };
 
   // 重置媒体相关状态

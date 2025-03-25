@@ -70,20 +70,10 @@ const getFullMediaUrl = (url) => {
     url = '/' + url;
   }
   
-  // 获取当前环境的API基础路径
-  const baseApi = import.meta.env.VITE_APP_BASE_API || '';
-  
-  // 使用当前页面的协议和主机名
+  // 使用当前页面的协议和主机名，但端口号固定为9099
   const protocol = window.location.protocol;
-  const host = window.location.host;
-  
-  // 如果baseApi是以/开头的相对路径，则需要拼接完整URL
-  if (baseApi.startsWith('/')) {
-    return `${protocol}//${host}${url}`;
-  } else {
-    // 如果baseApi已经是完整URL，则直接使用
-    return `${baseApi}${url}`;
-  }
+  const host = window.location.hostname;
+  return `${protocol}//${host}:9099${url}`;
 };
 
 // 获取媒体URL
@@ -98,6 +88,7 @@ const getMediaUrl = (media) => {
     const year = today.getFullYear();
     const month = String(today.getMonth() + 1).padStart(2, '0');
     const day = String(today.getDate()).padStart(2, '0');
+    
     url = `/profile/upload/${year}/${month}/${day}/${media.name}`;
   }
   

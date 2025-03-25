@@ -23,7 +23,7 @@ const {
   checkFileLimit, handleFileChange, processFile, removeMedia, uploadFiles, resetMedia 
 } = useCarouselMedia(form);
 
-const { onDragStart, onDragEnd } = useCarouselDrag();
+const { onDragStart, onDragEnd } = useCarouselDrag(form);
 
 const { 
   carouselList, total, queryParams, pageNum, pageSize, 
@@ -442,7 +442,7 @@ onMounted(() => {
                         </el-tag>
                       </div>
                     </div>
-                    <div class="media-actions">
+                    <div class="media-actions" v-if="element.type!='video'">
                       <el-button type="primary" icon="Rank" circle class="drag-handle" title="拖动调整顺序"></el-button>
                       <el-button type="danger" icon="Delete" circle @click="removeMedia(index)"></el-button>
                     </div>

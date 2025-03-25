@@ -23,6 +23,7 @@ class SysCarousel(Base):
     sort = Column(Integer, default=0, comment="排序")
     start_time = Column(DateTime, nullable=True, comment="开始时间")
     end_time = Column(DateTime, nullable=True, comment="结束时间")
+    desc = Column(Text, nullable=True, comment="详情内容")
     remark = Column(String(500), nullable=True, comment="备注")
     status = Column(String(1), default="0", comment="状态（0正常 1停用）")
     create_by = Column(String(64), nullable=True, comment="创建者")

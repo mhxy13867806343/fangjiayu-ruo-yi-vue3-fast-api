@@ -11,15 +11,17 @@ from pydantic import BaseModel, Field
 class CarouselMediaModel(BaseModel):
     """轮播图媒体模型"""
     id: Optional[int] = Field(None, description="媒体ID")
-    carousel_id: Optional[int] = Field(None, description="轮播图ID")
+    carousel_id: Optional[int] = Field(None, description="轮播图ID", alias="carouselId")
     name: Optional[str] = Field(None, description="媒体名称")
     url: str = Field(..., description="媒体地址")
     type: str = Field(..., description="媒体类型")
-    external_link: Optional[str] = Field(None, description="外部链接")
+    external_link: Optional[str] = Field(None, description="外部链接", alias="externalLink")
     sort: Optional[int] = Field(0, description="排序")
     
     class Config:
         from_attributes = True
+        populate_by_name = True
+        allow_population_by_field_name = True
 
 
 class CarouselModel(BaseModel):
@@ -29,17 +31,20 @@ class CarouselModel(BaseModel):
     type: str = Field(..., description="轮播类型")
     category: Optional[str] = Field(None, description="分类")
     position: str = Field(..., description="显示位置")
-    is_external_link: Optional[str] = Field("0", description="是否外链")
+    is_external_link: Optional[str] = Field("0", description="是否外链", alias="isExternalLink")
     url: Optional[str] = Field(None, description="链接地址")
     sort: Optional[int] = Field(0, description="排序")
-    start_time: Optional[datetime] = Field(None, description="开始时间")
-    end_time: Optional[datetime] = Field(None, description="结束时间")
+    start_time: Optional[datetime] = Field(None, description="开始时间", alias="startTime")
+    end_time: Optional[datetime] = Field(None, description="结束时间", alias="endTime")
+    desc: Optional[str] = Field(None, description="详情内容")
     remark: Optional[str] = Field(None, description="备注")
     status: Optional[str] = Field("0", description="状态（0正常 1停用）")
-    media_list: List[CarouselMediaModel] = Field([], description="媒体列表")
+    media_list: List[CarouselMediaModel] = Field([], description="媒体列表", alias="mediaList")
     
     class Config:
         from_attributes = True
+        populate_by_name = True
+        allow_population_by_field_name = True
 
 
 class CarouselPageQueryModel(BaseModel):

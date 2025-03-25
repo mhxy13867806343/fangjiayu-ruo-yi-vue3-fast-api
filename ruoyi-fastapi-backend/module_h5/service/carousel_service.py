@@ -95,14 +95,15 @@ class CarouselService:
                 "type": carousel.type,
                 "category": carousel.category,
                 "position": carousel.position,
-                "is_external_link": carousel.is_external_link,
+                "isExternalLink": carousel.is_external_link,
                 "url": carousel.url,
                 "sort": carousel.sort,
-                "start_time": carousel.start_time,
-                "end_time": carousel.end_time,
+                "startTime": carousel.start_time,
+                "endTime": carousel.end_time,
+                "desc": carousel.desc,
                 "remark": carousel.remark,
                 "status": carousel.status,
-                "media_list": []
+                "mediaList": []
             }
             
             # 查询媒体列表
@@ -115,17 +116,17 @@ class CarouselService:
             for media in media_list:
                 media_dict = {
                     "id": media.id,
-                    "carousel_id": media.carousel_id,
+                    "carouselId": media.carousel_id,
                     "name": media.name,
                     "url": media.url,
                     "type": media.type,
-                    "external_link": media.external_link,
+                    "externalLink": media.external_link,
                     "sort": media.sort
                 }
                 media_models.append(media_dict)
             
             # 添加媒体列表
-            carousel_dict["media_list"] = media_models
+            carousel_dict["mediaList"] = media_models
             
             # 添加到轮播图模型列表
             carousel_models.append(carousel_dict)
@@ -167,14 +168,15 @@ class CarouselService:
             "type": carousel.type,
             "category": carousel.category,
             "position": carousel.position,
-            "is_external_link": carousel.is_external_link,
+            "isExternalLink": carousel.is_external_link,
             "url": carousel.url,
             "sort": carousel.sort,
-            "start_time": carousel.start_time,
-            "end_time": carousel.end_time,
+            "startTime": carousel.start_time,
+            "endTime": carousel.end_time,
+            "desc": carousel.desc,
             "remark": carousel.remark,
             "status": carousel.status,
-            "media_list": []
+            "mediaList": []
         }
         
         # 查询媒体列表
@@ -187,17 +189,17 @@ class CarouselService:
         for media in media_list:
             media_dict = {
                 "id": media.id,
-                "carousel_id": media.carousel_id,
+                "carouselId": media.carousel_id,
                 "name": media.name,
                 "url": media.url,
                 "type": media.type,
-                "external_link": media.external_link,
+                "externalLink": media.external_link,
                 "sort": media.sort
             }
             media_models.append(media_dict)
         
         # 添加媒体列表
-        carousel_dict["media_list"] = media_models
+        carousel_dict["mediaList"] = media_models
         
         # 创建并返回轮播图模型
         return CarouselModel(**carousel_dict)
@@ -213,7 +215,7 @@ class CarouselService:
         添加轮播图
         """
         # 创建轮播图对象
-        db_carousel = SysCarousel(
+        carousel_obj = SysCarousel(
             title=carousel.title,
             type=carousel.type,
             category=carousel.category,
@@ -223,21 +225,24 @@ class CarouselService:
             sort=carousel.sort,
             start_time=carousel.start_time,
             end_time=carousel.end_time,
+            desc=carousel.desc,
             remark=carousel.remark,
             status=carousel.status,
             create_by=username,
-            create_time=datetime.now()
+            create_time=datetime.now(),
+            update_by=username,
+            update_time=datetime.now()
         )
         
         # 添加轮播图
-        db.add(db_carousel)
+        db.add(carousel_obj)
         await db.flush()
         
         # 添加媒体
         if carousel.media_list:
             for media in carousel.media_list:
                 db_media = SysCarouselMedia(
-                    carousel_id=db_carousel.id,
+                    carousel_id=carousel_obj.id,
                     name=media.name,
                     url=media.url,
                     type=media.type,
@@ -248,7 +253,7 @@ class CarouselService:
                 db.add(db_media)
         
         await db.commit()
-        return db_carousel
+        return carousel_obj
     
     @classmethod
     async def update_carousel_services(
@@ -288,6 +293,7 @@ class CarouselService:
         carousel_obj.sort = carousel.sort
         carousel_obj.start_time = carousel.start_time
         carousel_obj.end_time = carousel.end_time
+        carousel_obj.desc = carousel.desc
         carousel_obj.remark = carousel.remark
         carousel_obj.status = carousel.status
         carousel_obj.update_by = username
@@ -343,6 +349,7 @@ class CarouselService:
         db_carousel.sort = carousel.sort
         db_carousel.start_time = carousel.start_time
         db_carousel.end_time = carousel.end_time
+        db_carousel.desc = carousel.desc
         db_carousel.remark = carousel.remark
         db_carousel.status = carousel.status
         db_carousel.update_by = username

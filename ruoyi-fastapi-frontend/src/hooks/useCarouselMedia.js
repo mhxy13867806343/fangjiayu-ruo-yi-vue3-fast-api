@@ -145,57 +145,81 @@ export default function useCarouselMedia(form) {
 
   // 处理单个文件的上传和预览
   const processFile = (file) => {
-    ensureMediaList();
-    if (beforeUpload(file.raw)) {
-      // 模拟上传进度
-      simulateUploadProgress(file.uid);
-
-      // 本地预览
-      setTimeout(() => {
-        // 再次检查是否已经达到上限（可能在延迟期间已经添加了其他文件）
-        if (form.value.mediaList.length >= 9) {
-          delete uploadProgress.value[file.uid];
-          return;
-        }
-
-        const fileUrl = URL.createObjectURL(file.raw);
-        
-        // 更准确地判断文件类型
-        const fileType = file.raw.type;
-        const isVideo = fileType.startsWith('video/');
-        const isImage = fileType.startsWith('image/');
-        
-        if (!isVideo && !isImage) {
-          ElMessage.error(`不支持的文件类型: ${fileType}`);
-          delete uploadProgress.value[file.uid];
-          return;
-        }
-
-        // 添加到媒体列表用于预览
-        form.value.mediaList.push({
-          uid: file.uid,
-          name: file.name,
-          url: fileUrl,
-          type: isVideo ? 'video' : 'image',
-          size: file.raw.size,
-          externalLink: '',
-          file: file.raw // 保存原始文件对象，用于后续上传
-        });
-
-        console.log(`添加文件: ${file.name}, 类型: ${isVideo ? 'video' : 'image'}, 总数: ${form.value.mediaList.length}`);
-
-        // 添加到待上传文件列表
-        pendingUploadFiles.value.push({
-          uid: file.uid,
-          file: file.raw
-        });
-
-        // 清除进度
-        setTimeout(() => {
-          delete uploadProgress.value[file.uid];
-        }, 1000);
-      }, 1000); // 缩短延迟时间，提高响应速度
+    if (!file) return false;
+    
+    // 检查文件大小限制
+    if (file.size > 10 * 1024 * 1024) {
+      ElMessage.error('文件大小不能超过10MB');
+      return false;
     }
+    
+    // 检查文件类型
+    const fileType = file.raw.type;
+    const isVideo = fileType.startsWith('video/');
+    const isImage = fileType.startsWith('image/');
+    
+    if (!isVideo && !isImage) {
+      ElMessage.error(`不支持的文件类型: ${fileType}`);
+      return false;
+    }
+    
+    // 确保媒体列表已初始化
+    ensureMediaList();
+    
+    // 检查是否已达到上限
+    if (form.value.mediaList.length >= 9) {
+      ElMessage.warning('最多只能上传9个文件');
+      return false;
+    }
+    
+    // 检查是否已经存在相同文件（根据文件名和大小）
+    const isDuplicate = form.value.mediaList.some(item => 
+      item.name === file.name && 
+      item.size === file.raw.size
+    );
+    
+    if (isDuplicate) {
+      ElMessage.warning(`文件 ${file.name} 已存在，请勿重复添加`);
+      return false;
+    }
+    
+    // 模拟上传进度
+    simulateUploadProgress(file.uid);
+    
+    // 本地预览
+    setTimeout(() => {
+      // 再次检查是否已经达到上限（可能在延迟期间已经添加了其他文件）
+      if (form.value.mediaList.length >= 9) {
+        delete uploadProgress.value[file.uid];
+        return;
+      }
+
+      const fileUrl = URL.createObjectURL(file.raw);
+      
+      // 添加到媒体列表用于预览
+      form.value.mediaList.push({
+        uid: file.uid,
+        name: file.name,
+        url: fileUrl,
+        type: isVideo ? 'video' : 'image',
+        size: file.raw.size,
+        externalLink: '',
+        file: file.raw // 保存原始文件对象，用于后续上传
+      });
+
+      console.log(`添加文件: ${file.name}, 类型: ${isVideo ? 'video' : 'image'}, 总数: ${form.value.mediaList.length}`);
+
+      // 添加到待上传文件列表
+      pendingUploadFiles.value.push({
+        uid: file.uid,
+        file: file.raw
+      });
+
+      // 清除进度
+      setTimeout(() => {
+        delete uploadProgress.value[file.uid];
+      }, 1000);
+    }, 1000); // 缩短延迟时间，提高响应速度
   };
 
   // 移除媒体文件

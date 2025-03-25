@@ -9,7 +9,7 @@ import draggable from 'vuedraggable';
 import Editor from '@/components/Editor';
 import { getCarousel } from '@/api/h5/carousel'; // 修正导入路径
 import { ElMessage } from 'element-plus'; // 引入Element Plus的消息提示组件
-
+import dayjs from 'dayjs'
 // 引入各个 hooks
 const { 
   title, open, loading, typeOptions, categoryOptions, positionOptions, 
@@ -32,6 +32,40 @@ const {
 
 const { submitForm } = useCarouselSubmit(form, open, loading, getList, uploadFiles);
 
+const  typeOptionsComputed = computed(() => {
+  return typeOptions.value.map(item => {
+    return {
+      value: item.value,
+      label: item.label
+    };
+  });
+});
+const getCategoryNameComputed = computed(()=>{
+  return categoryOptions.value.map(item => {
+    return {
+      value: item.value,
+      label: item.label
+    };
+  });
+})
+const getPositionNameComputed = computed(() => {
+  return positionOptions.value.map(item => {
+    return {
+      value: item.value,
+      label: item.label
+    };
+  });
+});
+
+const getCreateTimeComputed = computed(() => {
+  return carouselList.value.map(item => {
+    return {
+      startTime:dayjs(item.startTime).format('YYYY-MM-DD HH:mm:ss'),
+      endTime:dayjs(item.endTime).format('YYYY-MM-DD HH:mm:ss'),
+    }
+  })
+})
+
 // 新增按钮操作
 const handleAdd = () => {
   reset();
@@ -53,8 +87,8 @@ const handleUpdate = async (row) => {
       
       // 处理字段名称差异（后端返回的是蛇形命名，前端使用驼峰命名）
       // 处理 media_list -> mediaList
-      if (carouselData.media_list && Array.isArray(carouselData.media_list)) {
-        carouselData.mediaList = carouselData.media_list.map(item => {
+      if (carouselData.mediaList && Array.isArray(carouselData.mediaList)) {
+        carouselData.mediaList = carouselData.mediaList.map(item => {
           // 确保类型字段正确
           if (item.type !== 'video' && item.type !== 'image') {
             // 根据URL判断类型
@@ -86,6 +120,13 @@ const handleUpdate = async (row) => {
       }
       if (carouselData.end_time !== undefined) {
         carouselData.endTime = carouselData.end_time;
+      }
+      
+      // 处理desc字段
+      if (carouselData.desc !== undefined) {
+        carouselData.desc = carouselData.desc || '';
+      } else if (carouselData.detail !== undefined) {
+        carouselData.desc = carouselData.detail || '';
       }
       
       // 更新表单数据
@@ -177,13 +218,37 @@ onMounted(() => {
     <el-table v-loading="loading" :data="carouselList">
       <el-table-column label="ID" align="center" prop="id" />
       <el-table-column label="标题" align="center" prop="title" :show-overflow-tooltip="true" />
-      <el-table-column label="轮播类型" align="center" prop="typeName" />
-      <el-table-column label="分类" align="center" prop="categoryName" />
-      <el-table-column label="显示位置" align="center" prop="positionName" />
+      <el-table-column label="轮播类型" align="center">
+        <template #default="{row,$index}">
+          {{ typeOptionsComputed[$index]?.label}}
+        </template>
+      </el-table-column>
+      <el-table-column label="分类" align="center">
+        <template #default="{row,$index}">
+          {{ getCategoryNameComputed[$index]?.label}}
+        </template>
+      </el-table-column>
+      <el-table-column label="显示位置" align="center">
+        <template #default="{row,$index}">
+          {{  getPositionNameComputed[$index]?.label}}
+        </template>
+      </el-table-column>
       <el-table-column label="URL" align="center" prop="url" />
-      <el-table-column label="开始时间" align="center" prop="startTime" width="160" />
-      <el-table-column label="结束时间" align="center" prop="end_time" width="160" />
-      <el-table-column label="创建时间" align="center" prop="createTime" width="160" />
+      <el-table-column label="开始时间" align="center" prop="" width="160" >
+         <template #default="{row,$index}">
+        {{ getCreateTimeComputed[$index]?.startTime||'--'}}
+        </template>
+      </el-table-column>
+      <el-table-column label="结束时间" align="center" prop="endTime" width="160" >
+         <template #default="{row,$index}">
+         {{ getCreateTimeComputed[$index]?.endTime||'--'}}
+        </template>
+      </el-table-column>
+      <el-table-column label="创建时间" align="center" width="160">
+        <template #default="{row,$index}">
+         {{ getCreateTimeComputed[$index]?.startTime||'--'}}
+        </template>
+      </el-table-column>
       <el-table-column label="状态" align="center">
         <template #default="scope">
           <el-switch
@@ -395,7 +460,11 @@ onMounted(() => {
         <!-- 仅当不是首页时显示富文本编辑器 -->
         <div v-if="form.position !== '1'">
           <el-divider content-position="center">详情信息</el-divider>
-          <Editor v-model="form.detail" :min-height="192" />
+          <p>当前position值: {{ form.position }}</p>
+          <Editor v-model="form.desc" :min-height="192" />
+        </div>
+        <div v-else>
+          <p>首页轮播图不显示富文本编辑器 (position: {{ form.position }})</p>
         </div>
       </el-form>
       <template #footer>

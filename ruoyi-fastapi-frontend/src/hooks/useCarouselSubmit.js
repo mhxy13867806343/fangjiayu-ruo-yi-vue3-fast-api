@@ -34,20 +34,31 @@ export default function useCarouselSubmit(form, open, loading, getList, uploadFi
           return false;
         }
         
-        // 合并已有的媒体和新上传的媒体
-        formData.mediaList = formData.mediaList.map(item => {
-          // 如果是blob URL，查找对应的已上传文件
+        // 创建一个新的媒体列表，避免重复
+        const newMediaList = [];
+        
+        // 首先添加所有已有的媒体（不是blob URL的）
+        formData.mediaList.forEach(item => {
+          if (item.url && !item.url.startsWith('blob:')) {
+            newMediaList.push(item);
+          }
+        });
+        
+        // 然后添加所有新上传的媒体
+        formData.mediaList.forEach(item => {
           if (item.url && item.url.startsWith('blob:')) {
             const uploadedItem = uploadedMediaList.find(m => m.uid === item.uid);
             if (uploadedItem) {
-              return {
+              newMediaList.push({
                 ...item,
                 url: uploadedItem.url // 使用上传后的URL
-              };
+              });
             }
           }
-          return item;
         });
+        
+        // 更新媒体列表
+        formData.mediaList = newMediaList;
       }
       
       // 确保媒体列表中的每个项目都有正确的类型
@@ -96,29 +107,40 @@ export default function useCarouselSubmit(form, open, loading, getList, uploadFi
         media_list: formData.mediaList,
         is_external_link: formData.isExternalLink,
         start_time: formData.startTime,
-        end_time: formData.endTime
+        end_time: formData.endTime,
+        desc: formData.desc || '' // 确保desc字段被包含
       };
       
-      // 删除前端特有的字段，避免后端处理错误
+      // 删除前端专用字段，避免后端处理错误
       delete submitData.mediaList;
       delete submitData.isExternalLink;
       delete submitData.startTime;
       delete submitData.endTime;
       
       console.log('提交数据:', submitData);
-
+      console.log('desc字段值:', submitData.desc);
+      
       // 提交表单
-      if (formData.id != null) {
-        // 更新
-        await updateCarousel(submitData);
-        ElMessage.success('修改成功');
-      } else {
-        // 新增
-        await addCarousel(submitData);
-        ElMessage.success('新增成功');
+      try {
+        if (submitData.id != null) {
+          // 更新
+          await updateCarousel(submitData);
+          ElMessage.success('修改成功');
+        } else {
+          // 新增
+          await addCarousel(submitData);
+          ElMessage.success('新增成功');
+        }
+        open.value = false;
+        loading.value = false;
+        getList();
+        return true;
+      } catch (error) {
+        console.error('提交表单失败:', error);
+        ElMessage.error('操作失败: ' + (error.message || '未知错误'));
+        loading.value = false;
+        return false;
       }
-      open.value = false;
-      getList();
     } catch (error) {
       console.error('提交失败:', error);
       ElMessage.error('提交失败：' + (error.message || '未知错误'));

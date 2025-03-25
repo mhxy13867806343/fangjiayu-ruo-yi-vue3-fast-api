@@ -39,7 +39,7 @@ export default function useCarouselForm() {
     startTime: '',
     endTime: '',
     mediaList: [],
-    detail: '',
+    desc: '',
     status: '0'
   });
 
@@ -61,7 +61,7 @@ export default function useCarouselForm() {
     url: [
       { required: true, message: '请输入URL', trigger: 'blur' },
       {
-        pattern: /^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})([/\w.-]*)*\/?$/,
+        pattern: /^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})([\w.-]*)*\/?$/,
         message: '请输入有效的URL地址',
         trigger: 'blur'
       }
@@ -115,7 +115,7 @@ export default function useCarouselForm() {
       startTime: '',
       endTime: '',
       mediaList: [],
-      detail: '',
+      desc: '',
       status: '0'
     };
   };

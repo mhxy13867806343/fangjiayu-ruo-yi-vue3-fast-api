@@ -57,13 +57,16 @@ async def create_carousel(
     """
     创建轮播图
     """
-    carousel = await CarouselService.add_carousel_services(
-        db=query_db, 
-        carousel=carousel_in, 
-        username="admin"  # 使用默认用户名
-    )
+    # 打印接收到的轮播图数据
+    print("接收到的轮播图数据:", carousel_in.dict())
     
-    return ResponseUtil.success(msg="创建成功")
+    # 创建轮播图
+    result = await CarouselService.add_carousel_services(
+        db=query_db,
+        carousel=carousel_in,
+        username="admin"
+    )
+    return ResponseUtil.success(msg="创建成功", data=result)
 
 
 @carouselController.put("")
@@ -75,19 +78,20 @@ async def update_carousel(
     """
     更新轮播图
     """
+    # 打印更新轮播图数据
+    print("更新轮播图数据:", carousel_in.dict())
+    
     if not carousel_in.id:
         return ResponseUtil.error(msg="轮播图ID不能为空")
     
-    carousel = await CarouselService.update_carousel_services(
-        db=query_db, 
-        carousel_id=carousel_in.id, 
-        carousel=carousel_in, 
-        username="admin"  # 使用默认用户名
+    result = await CarouselService.update_carousel_services(
+        db=query_db,
+        carousel=carousel_in,
+        username="admin"
     )
-    
-    if carousel is None:
+    if result is None:
         return ResponseUtil.error(msg="轮播图不存在")
-    elif carousel is False:
+    elif result is False:
         return ResponseUtil.error(msg="只能修改状态为正常且未过期的轮播图")
     
     return ResponseUtil.success(msg="更新成功")

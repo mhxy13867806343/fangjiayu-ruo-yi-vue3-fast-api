@@ -220,8 +220,7 @@ onMounted(() => {
         <el-date-picker
           v-model="queryParams.dateRange"
           style="width: 300px"
-          format="YYYY-MM-DD HH:mm:ss"
-                  value-format="YYYY-MM-DD HH:mm:ss"
+          value-format="YYYY-MM-DD"
           type="daterange"
           range-separator="-"
           start-placeholder="开始日期"

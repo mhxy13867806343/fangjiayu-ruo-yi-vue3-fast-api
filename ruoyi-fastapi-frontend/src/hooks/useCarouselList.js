@@ -1,5 +1,6 @@
 import { ref } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
+import { listCarousel, delCarousel, changeCarouselStatus } from '@/api/h5/carousel';
 
 export default function useCarouselList() {
   // 表格数据
@@ -20,48 +21,29 @@ export default function useCarouselList() {
   const pageNum = ref(1);
   const pageSize = ref(10);
 
-  // 模拟获取数据
+  // 获取轮播图列表数据
   const getList = () => {
     loading.value = true;
-    // 这里模拟异步请求
-    setTimeout(() => {
-      carouselList.value = [
-        {
-          id: 1,
-          title: '新品上市活动',
-          type: '2',
-          typeName: '活动轮播',
-          category: '1',
-          categoryName: '活动',
-          isExternalLink: '0',
-          position: '1',
-          positionName: '首页',
-          url: 'https://example.com/page1',
-          startTime: '2025-03-20 00:00:00',
-          endTime: '2025-04-20 23:59:59',
-          createTime: '2025-03-24 10:00:00',
-          status: '0'
-        },
-        {
-          id: 2,
-          title: '春季促销活动',
-          type: '2',
-          typeName: '活动轮播',
-          category: '2',
-          categoryName: '促销',
-          isExternalLink: '0',
-          position: '1',
-          positionName: '首页',
-          url: 'https://example.com/page2',
-          startTime: '2025-03-15 00:00:00',
-          endTime: '2025-04-15 23:59:59',
-          createTime: '2025-03-14 10:00:00',
-          status: '0'
-        }
-      ];
-      total.value = carouselList.value.length;
+    
+    listCarousel({
+      pageNum: pageNum.value,
+      pageSize: pageSize.value,
+      title: queryParams.value.title,
+      type: queryParams.value.type,
+      position: queryParams.value.position,
+      dateRange: queryParams.value.dateRange
+    }).then(response => {
+     const {code,total,rows,msg}=response
+      ElMessage[code===200?'success':'error']({
+        message: msg,
+        type: code===200?'success':'error'
+      })
+      carouselList.value = rows||[];
+      total.value =total ||0
       loading.value = false;
-    }, 300);
+    }).catch(() => {
+      loading.value = false;
+    });
   };
 
   // 搜索按钮操作
@@ -83,28 +65,49 @@ export default function useCarouselList() {
 
   // 删除按钮操作
   const handleDelete = (row) => {
-    ElMessageBox.confirm('是否确认删除轮播图名称为"' + row.title + '"的数据项?', '警告', {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      type: 'warning'
-    }).then(() => {
-      ElMessage.success('删除成功');
-      getList();
+    ElMessageBox.confirm(
+      `是否确认删除轮播图"${row.title}"?`,
+      "警告",
+      {
+        confirmButtonText: "确定",
+        cancelButtonText: "取消",
+        type: "warning",
+      }
+    ).then(() => {
+      delCarousel(row.id).then(() => {
+        ElMessage.success("删除成功");
+        getList();
+      });
     }).catch(() => {});
   };
 
   // 状态修改
-  const handleStatusChange = (row) => {
-    let text = row.status === "0" ? "启用" : "停用";
-    ElMessageBox.confirm('确认要"' + text + '""' + row.title + '"轮播图吗?', '警告', {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      type: 'warning'
-    }).then(() => {
-      row.status = row.status === "0" ? "1" : "0";
-      ElMessage.success(text + '成功');
+  const handleStatusChange = (row, newStatus) => {
+    let text = newStatus === "0" ? "启用" : "停用";
+    
+    ElMessageBox.confirm(
+      `确认要${text}"${row.title}"吗?`,
+      "警告",
+      {
+        confirmButtonText: "确定",
+        cancelButtonText: "取消",
+        type: "warning",
+      }
+    ).then(() => {
+      changeCarouselStatus(row.id, newStatus).then((res) => {
+        if(res.code===200){
+          ElMessage.success(res.msg);
+          // 更新成功后，修改状态值
+          row.status = newStatus;
+          getList();
+        }else{
+          ElMessage.error(res.msg);
+        }
+      }).catch(() => {
+        ElMessage.error("修改失败");
+      });
     }).catch(() => {
-      row.status = row.status === "0" ? "1" : "0";
+      // 用户取消操作，不做任何处理
     });
   };
 

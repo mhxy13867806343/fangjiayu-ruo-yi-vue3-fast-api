@@ -1,7 +1,18 @@
 import { ref } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
+import { uploadMedia } from '@/api/h5/carousel';
 
 export default function useCarouselMedia(form) {
+  // 确保表单的mediaList字段初始化
+  const ensureMediaList = () => {
+    if (!form.value) {
+      form.value = {};
+    }
+    if (!form.value.mediaList) {
+      form.value.mediaList = [];
+    }
+  };
+
   // 待上传的文件列表（只在提交表单时才真正上传）
   const pendingUploadFiles = ref([]);
 
@@ -30,8 +41,8 @@ export default function useCarouselMedia(form) {
     }
 
     // 检查文件类型
-    const isImage = file.type.indexOf('image/') !== -1;
-    const isVideo = file.type.indexOf('video/') !== -1;
+    const isImage = file.type.startsWith('image/');
+    const isVideo = file.type.startsWith('video/');
     if (!isImage && !isVideo) {
       ElMessage.error('只能上传图片或视频文件!');
       return false;
@@ -42,6 +53,7 @@ export default function useCarouselMedia(form) {
 
   // 处理超出文件数量限制
   const handleExceed = (files) => {
+    ensureMediaList();
     console.log('handleExceed', files);
     // 当选择的文件超过限制时，我们仍然处理它们，但只取前面的部分
     const remainingSlots = 9 - form.value.mediaList.length;
@@ -68,6 +80,7 @@ export default function useCarouselMedia(form) {
 
   // 检查文件数量限制
   const checkFileLimit = () => {
+    ensureMediaList();
     if (form.value.mediaList.length >= 9) {
       ElMessage.warning('已达到最大上传数量9个，无法继续添加');
       return false;
@@ -75,9 +88,28 @@ export default function useCarouselMedia(form) {
     return true;
   };
 
-  // 处理文件变更
+  // 处理文件变化事件
   const handleFileChange = (file, fileList) => {
-    console.log('handleFileChange', file, fileList);
+    ensureMediaList();
+
+    // 如果是删除操作，不处理
+    if (!file || !file.raw) {
+      return;
+    }
+
+    // 去重处理
+    const uniqueFiles = [];
+    const uniqueFileKeys = new Set();
+    
+    for (const f of fileList) {
+      if (!f.raw) continue;
+      
+      const fileKey = `${f.name}-${f.size}`;
+      if (!uniqueFileKeys.has(fileKey)) {
+        uniqueFileKeys.add(fileKey);
+        uniqueFiles.push(f);
+      }
+    }
 
     // 如果已经有9个或以上的文件，则不再添加
     if (form.value.mediaList.length >= 9) {
@@ -87,33 +119,33 @@ export default function useCarouselMedia(form) {
 
     // 计算还可以添加多少个文件
     const remainingSlots = 9 - form.value.mediaList.length;
+    
+    // 只处理剩余槽位数量的文件
+    const filesToProcess = uniqueFiles.slice(0, remainingSlots);
 
-    // 如果用户一次性选择了多个文件
-    if (fileList.length > 1) {
-      // 只处理剩余槽位数量的文件
-      const filesToProcess = fileList.slice(0, remainingSlots).filter(f => f.status === 'ready');
-
-      if (filesToProcess.length > 0) {
-        if (fileList.length > remainingSlots) {
-          ElMessage.info(`您选择了${fileList.length}个文件，但只能再添加${remainingSlots}个，将自动取前${remainingSlots}个文件`);
-        }
-
-        // 处理每个文件
-        filesToProcess.forEach(f => {
-          processFile(f);
-        });
+    if (filesToProcess.length > 0) {
+      if (uniqueFiles.length > remainingSlots) {
+        ElMessage.info(`您选择了${uniqueFiles.length}个文件，但只能再添加${remainingSlots}个，将自动取前${remainingSlots}个文件`);
       }
-      return;
-    }
 
-    // 处理单个文件的情况
-    if (file.status === 'ready') {
-      processFile(file);
+      // 处理每个文件
+      filesToProcess.forEach(f => {
+        // 检查是否已经存在相同文件名和大小的文件，避免重复添加
+        const fileKey = `${f.name}-${f.size}`;
+        const existingFileIndex = form.value.mediaList.findIndex(item => 
+          item.name === f.name && item.size === f.size
+        );
+        
+        if (existingFileIndex === -1) {
+          processFile(f);
+        }
+      });
     }
   };
 
   // 处理单个文件的上传和预览
   const processFile = (file) => {
+    ensureMediaList();
     if (beforeUpload(file.raw)) {
       // 模拟上传进度
       simulateUploadProgress(file.uid);
@@ -127,7 +159,17 @@ export default function useCarouselMedia(form) {
         }
 
         const fileUrl = URL.createObjectURL(file.raw);
-        const isVideo = file.raw.type.indexOf('video/') !== -1;
+        
+        // 更准确地判断文件类型
+        const fileType = file.raw.type;
+        const isVideo = fileType.startsWith('video/');
+        const isImage = fileType.startsWith('image/');
+        
+        if (!isVideo && !isImage) {
+          ElMessage.error(`不支持的文件类型: ${fileType}`);
+          delete uploadProgress.value[file.uid];
+          return;
+        }
 
         // 添加到媒体列表用于预览
         form.value.mediaList.push({
@@ -135,9 +177,12 @@ export default function useCarouselMedia(form) {
           name: file.name,
           url: fileUrl,
           type: isVideo ? 'video' : 'image',
+          size: file.raw.size,
           externalLink: '',
           file: file.raw // 保存原始文件对象，用于后续上传
         });
+
+        console.log(`添加文件: ${file.name}, 类型: ${isVideo ? 'video' : 'image'}, 总数: ${form.value.mediaList.length}`);
 
         // 添加到待上传文件列表
         pendingUploadFiles.value.push({
@@ -155,6 +200,7 @@ export default function useCarouselMedia(form) {
 
   // 移除媒体文件
   const removeMedia = (index) => {
+    ensureMediaList();
     ElMessageBox.confirm('确定要删除这个媒体文件吗?', '提示', {
       confirmButtonText: '确定',
       cancelButtonText: '取消',
@@ -179,38 +225,93 @@ export default function useCarouselMedia(form) {
 
   // 实际上传文件（在表单提交时调用）
   const uploadFiles = async () => {
+    ensureMediaList();
     if (pendingUploadFiles.value.length === 0) {
       return Promise.resolve([]);
     }
 
-    // 这里是模拟上传，实际项目中应该调用真实的上传API
-    return new Promise((resolve) => {
-      const uploadResults = [];
-
-      // 模拟异步上传
-      setTimeout(() => {
-        pendingUploadFiles.value.forEach(item => {
-          // 模拟服务器返回的文件URL
-          uploadResults.push({
+    try {
+      const uploadPromises = pendingUploadFiles.value.map(async (item) => {
+        try {
+          // 调用实际的上传API
+          const response = await uploadMedia(item.file);
+          console.log('文件上传响应:', response);
+          
+          // 检查响应结构，兼容不同的返回格式
+          let fileUrl = '';
+          
+          // 处理后端返回的标准格式：
+          // {is_success: true, result: {url: '完整URL', fileName: '文件路径'}, message: '上传成功'}
+          if (response && response.is_success && response.result) {
+            if (response.result.url) {
+              fileUrl = response.result.url;
+            } else if (response.result.fileName) {
+              fileUrl = response.result.fileName;
+            }
+          } 
+          // 兼容其他可能的返回格式
+          else if (response && response.data) {
+            if (typeof response.data === 'string') {
+              fileUrl = response.data;
+            } else if (response.data.url) {
+              fileUrl = response.data.url;
+            } else if (response.data.fileName) {
+              fileUrl = response.data.fileName;
+            }
+          }
+          
+          if (!fileUrl) {
+            console.warn('无法从响应中获取文件URL:', response);
+            // 使用本地URL作为备用，但标记为上传失败
+            return {
+              uid: item.uid,
+              url: URL.createObjectURL(item.file),
+              name: item.file.name,
+              type: item.file.type.startsWith('video/') ? 'video' : 'image',
+              uploadFailed: true
+            };
+          }
+          
+          // 返回上传结果
+          return {
             uid: item.uid,
-            url: URL.createObjectURL(item.file),
+            url: fileUrl,
             name: item.file.name,
-            type: item.file.type.indexOf('video/') !== -1 ? 'video' : 'image'
-          });
-        });
+            type: item.file.type.startsWith('video/') ? 'video' : 'image'
+          };
+        } catch (error) {
+          console.error('文件上传失败:', error);
+          // 返回带有错误标记的结果，但不中断整个上传流程
+          return {
+            uid: item.uid,
+            url: URL.createObjectURL(item.file), // 使用本地URL作为备用
+            name: item.file.name,
+            type: item.file.type.startsWith('video/') ? 'video' : 'image',
+            uploadFailed: true
+          };
+        }
+      });
 
-        // 清空待上传列表
-        pendingUploadFiles.value = [];
-
-        resolve(uploadResults);
-      }, 1000);
-    });
+      // 等待所有文件上传完成
+      const uploadResults = await Promise.all(uploadPromises);
+      console.log('所有文件上传结果:', uploadResults);
+      
+      // 清空待上传列表
+      pendingUploadFiles.value = [];
+      
+      return uploadResults;
+    } catch (error) {
+      console.error('文件上传过程中发生错误:', error);
+      ElMessage.error('文件上传失败: ' + (error.message || '未知错误'));
+      return [];
+    }
   };
 
   // 重置媒体相关状态
   const resetMedia = () => {
-    uploadProgress.value = {};
     pendingUploadFiles.value = [];
+    uploadProgress.value = {};
+    ensureMediaList();
   };
 
   return {

@@ -7,6 +7,8 @@ import useCarouselList from '@/hooks/useCarouselList';
 import useCarouselSubmit from '@/hooks/useCarouselSubmit';
 import draggable from 'vuedraggable';
 import Editor from '@/components/Editor';
+import { getCarousel } from '@/api/h5/carousel'; // 修正导入路径
+import { ElMessage } from 'element-plus'; // 引入Element Plus的消息提示组件
 
 // 引入各个 hooks
 const { 
@@ -28,7 +30,7 @@ const {
   getList, handleQuery, resetQuery, handleDelete, handleStatusChange 
 } = useCarouselList();
 
-const { submitForm } = useCarouselSubmit(form, open, loading, getList);
+const { submitForm } = useCarouselSubmit(form, open, loading, getList, uploadFiles);
 
 // 新增按钮操作
 const handleAdd = () => {
@@ -39,33 +41,72 @@ const handleAdd = () => {
 };
 
 // 修改按钮操作
-const handleUpdate = (row) => {
+const handleUpdate = async (row) => {
   reset();
   resetMedia();
-  // 这里模拟获取详情数据
-  form.value = {
-    id: row.id,
-    title: row.title,
-    type: row.type,
-    category: row.category,
-    isExternalLink: row.isExternalLink,
-    position: row.position,
-    url: row.url || 'https://example.com/page',
-    startTime: row.startTime,
-    endTime: row.endTime,
-    mediaList: [
-      { name: '示例视频', type: 'video', url: 'https://example.com/video1.mp4', externalLink: '' }
-    ],
-    detail: '<p>这是一个活动详情的富文本内容</p>',
-    status: row.status
-  };
+  
+  try {
+    // 获取轮播图详情数据
+    const res = await getCarousel(row.id);
+    if (res.code === 200) {
+      const carouselData = res.data;
+      
+      // 处理字段名称差异（后端返回的是蛇形命名，前端使用驼峰命名）
+      // 处理 media_list -> mediaList
+      if (carouselData.media_list && Array.isArray(carouselData.media_list)) {
+        carouselData.mediaList = carouselData.media_list.map(item => {
+          // 确保类型字段正确
+          if (item.type !== 'video' && item.type !== 'image') {
+            // 根据URL判断类型
+            item.type = item.url.match(/\.(mp4|webm|ogg)$/i) ? 'video' : 'image';
+          }
+          
+          // 转换字段名称为驼峰命名
+          return {
+            id: item.id,
+            carouselId: item.carousel_id,
+            name: item.name,
+            url: item.url,
+            type: item.type,
+            externalLink: item.external_link || '',
+            sort: item.sort,
+            uid: Date.now() + '_' + Math.random().toString(36).substr(2, 10) // 生成唯一ID用于前端标识
+          };
+        });
+      } else {
+        carouselData.mediaList = [];
+      }
+      
+      // 处理其他字段名称差异
+      if (carouselData.is_external_link !== undefined) {
+        carouselData.isExternalLink = carouselData.is_external_link;
+      }
+      if (carouselData.start_time !== undefined) {
+        carouselData.startTime = carouselData.start_time;
+      }
+      if (carouselData.end_time !== undefined) {
+        carouselData.endTime = carouselData.end_time;
+      }
+      
+      // 更新表单数据
+      form.value = carouselData;
+      console.log('获取到的轮播图详情:', form.value);
+    } else {
+      ElMessage.error(res.msg || '获取轮播图详情失败');
+    }
+  } catch (error) {
+    console.error('获取轮播图详情失败:', error);
+    ElMessage.error('获取轮播图详情失败');
+  }
+  
   open.value = true;
   title.value = '修改轮播图';
 };
 
 // 表单提交
 const handleSubmit = () => {
-  submitForm(uploadFiles);
+  // 直接调用submitForm函数，不需要获取表单引用
+  submitForm();
 };
 
 onMounted(() => {
@@ -141,22 +182,24 @@ onMounted(() => {
       <el-table-column label="显示位置" align="center" prop="positionName" />
       <el-table-column label="URL" align="center" prop="url" />
       <el-table-column label="开始时间" align="center" prop="startTime" width="160" />
-      <el-table-column label="结束时间" align="center" prop="endTime" width="160" />
+      <el-table-column label="结束时间" align="center" prop="end_time" width="160" />
       <el-table-column label="创建时间" align="center" prop="createTime" width="160" />
       <el-table-column label="状态" align="center">
         <template #default="scope">
           <el-switch
-            v-model="scope.row.status"
-            active-value="0"
-            inactive-value="1"
-            @change="handleStatusChange(scope.row)"
+            :model-value="scope.row.status === '0'"
+            @change="(val) => handleStatusChange(scope.row, val ? '0' : '1')"
           ></el-switch>
         </template>
       </el-table-column>
       <el-table-column label="操作" align="center" width="150" class-name="small-padding fixed-width">
         <template #default="scope">
-          <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)">修改</el-button>
-          <el-button link type="primary" icon="Delete" @click="handleDelete(scope.row)">删除</el-button>
+          <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)"
+            v-if="scope.row.status === '0' && (!scope.row.end_time || new Date(scope.row.end_time) > new Date())"
+          >修改</el-button>
+          <el-button link type="primary" icon="Delete" @click="handleDelete(scope.row)"
+            v-if="scope.row.status === '0'"
+          >删除</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -319,7 +362,7 @@ onMounted(() => {
             </div>
             
             <!-- 上传按钮 -->
-            <div class="upload-button-container" v-if="form.mediaList.length < 9">
+            <div class="upload-button-container">
               <el-upload
                 class="media-uploader"
                 action="#"
@@ -332,12 +375,12 @@ onMounted(() => {
                 <el-button 
                   type="primary" 
                   icon="Plus" 
-                  :disabled="form.mediaList.length >= 9"
+                  :disabled="form.mediaList && form.mediaList.length >= 9"
                 >
                   添加媒体文件
                 </el-button>
                 <template #tip>
-                  <div class="el-upload__tip" v-if="form.mediaList.length">
+                  <div class="el-upload__tip" v-if="form.mediaList && form.mediaList.length">
                     已上传 {{ form.mediaList.length }} 个文件，还可上传 {{ 9 - form.mediaList.length }} 个
                   </div>
                   <div class="el-upload__tip">

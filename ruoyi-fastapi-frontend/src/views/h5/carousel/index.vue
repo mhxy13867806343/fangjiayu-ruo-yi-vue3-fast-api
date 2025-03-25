@@ -32,39 +32,29 @@ const {
 
 const { submitForm } = useCarouselSubmit(form, open, loading, getList, uploadFiles);
 
-const  typeOptionsComputed = computed(() => {
-  return typeOptions.value.map(item => {
-    return {
-      value: item.value,
-      label: item.label
-    };
-  });
-});
-const getCategoryNameComputed = computed(()=>{
-  return categoryOptions.value.map(item => {
-    return {
-      value: item.value,
-      label: item.label
-    };
-  });
-})
-const getPositionNameComputed = computed(() => {
-  return positionOptions.value.map(item => {
-    return {
-      value: item.value,
-      label: item.label
-    };
-  });
-});
+// 格式化时间的函数
+const formatTime = (time) => {
+  if (!time) return '--';
+  return dayjs(time).format('YYYY-MM-DD HH:mm:ss');
+};
 
-const getCreateTimeComputed = computed(() => {
-  return carouselList.value.map(item => {
-    return {
-      startTime:dayjs(item.startTime).format('YYYY-MM-DD HH:mm:ss'),
-      endTime:dayjs(item.endTime).format('YYYY-MM-DD HH:mm:ss'),
-    }
-  })
-})
+// 获取类型名称
+const getTypeName = (type) => {
+  const option = typeOptions.value.find(item => item.value === type);
+  return option ? option.label : type;
+};
+
+// 获取分类名称
+const getCategoryName = (category) => {
+  const option = categoryOptions.value.find(item => item.value === category);
+  return option ? option.label : category;
+};
+
+// 获取位置名称
+const getPositionName = (position) => {
+  const option = positionOptions.value.find(item => item.value === position);
+  return option ? option.label : position;
+};
 
 // 新增按钮操作
 const handleAdd = () => {
@@ -219,34 +209,34 @@ onMounted(() => {
       <el-table-column label="ID" align="center" prop="id" />
       <el-table-column label="标题" align="center" prop="title" :show-overflow-tooltip="true" />
       <el-table-column label="轮播类型" align="center">
-        <template #default="{row,$index}">
-          {{ typeOptionsComputed[$index]?.label}}
+        <template #default="scope">
+          {{ getTypeName(scope.row.type) }}
         </template>
       </el-table-column>
       <el-table-column label="分类" align="center">
-        <template #default="{row,$index}">
-          {{ getCategoryNameComputed[$index]?.label}}
+        <template #default="scope">
+          {{ getCategoryName(scope.row.category) }}
         </template>
       </el-table-column>
       <el-table-column label="显示位置" align="center">
-        <template #default="{row,$index}">
-          {{  getPositionNameComputed[$index]?.label}}
+        <template #default="scope">
+          {{ getPositionName(scope.row.position) }}
         </template>
       </el-table-column>
       <el-table-column label="URL" align="center" prop="url" />
       <el-table-column label="开始时间" align="center" prop="" width="160" >
-         <template #default="{row,$index}">
-        {{ getCreateTimeComputed[$index]?.startTime||'--'}}
+         <template #default="scope">
+        {{ formatTime(scope.row.startTime) }}
         </template>
       </el-table-column>
       <el-table-column label="结束时间" align="center" prop="endTime" width="160" >
-         <template #default="{row,$index}">
-         {{ getCreateTimeComputed[$index]?.endTime||'--'}}
+         <template #default="scope">
+         {{ formatTime(scope.row.endTime) }}
         </template>
       </el-table-column>
       <el-table-column label="创建时间" align="center" width="160">
-        <template #default="{row,$index}">
-         {{ getCreateTimeComputed[$index]?.startTime||'--'}}
+        <template #default="scope">
+         {{ formatTime(scope.row.startTime) }}
         </template>
       </el-table-column>
       <el-table-column label="状态" align="center">
@@ -355,6 +345,8 @@ onMounted(() => {
                   type="datetime"
                   placeholder="选择开始时间"
                   style="width: 100%"
+                  format="YYYY-MM-DD HH:mm:ss"
+                  value-format="YYYY-MM-DD HH:mm:ss"
                   :disabled-date="disabledStartDate"
                   @change="handleStartTimeChange"
                 />
@@ -366,6 +358,8 @@ onMounted(() => {
                   type="datetime"
                   placeholder="选择结束时间"
                   style="width: 100%"
+                  format="YYYY-MM-DD HH:mm:ss"
+                  value-format="YYYY-MM-DD HH:mm:ss"
                   :disabled="!form.startTime"
                   :disabled-date="disabledEndDate"
                 />

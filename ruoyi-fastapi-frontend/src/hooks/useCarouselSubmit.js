@@ -89,33 +89,24 @@ export default function useCarouselSubmit(form, open, loading, getList, uploadFi
           item.url = ''; // 提供默认空URL
         }
         
-        // 转换字段名称为后端期望的格式
+        // 使用驼峰命名法
         return {
           id: item.id,
-          carousel_id: item.carouselId || formData.id,
+          carouselId: item.carouselId || formData.id,
           name: item.name,
           url: item.url,
           type: item.type,
-          external_link: item.externalLink || '',
+          externalLink: item.externalLink || '',
           sort: item.sort || 0
         };
       });
       
-      // 转换字段名称为后端期望的格式（蛇形命名法）
+      // 直接使用驼峰命名法，不需要转换
       const submitData = {
         ...formData,
-        media_list: formData.mediaList,
-        is_external_link: formData.isExternalLink,
-        start_time: formData.startTime,
-        end_time: formData.endTime,
-        desc: formData.desc || '' // 确保desc字段被包含
+        // 确保desc字段被包含
+        desc: formData.desc || ''
       };
-      
-      // 删除前端专用字段，避免后端处理错误
-      delete submitData.mediaList;
-      delete submitData.isExternalLink;
-      delete submitData.startTime;
-      delete submitData.endTime;
       
       console.log('提交数据:', submitData);
       console.log('desc字段值:', submitData.desc);

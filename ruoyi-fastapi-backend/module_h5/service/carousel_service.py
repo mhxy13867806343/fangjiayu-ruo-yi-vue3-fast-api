@@ -121,12 +121,21 @@ class CarouselService:
             # 创建媒体模型列表
             media_models = []
             for media in media_list:
+                # 根据文件名后缀判断媒体类型
+                media_type = "image"  # 默认为图片类型
+                if media.name:
+                    file_ext = media.name.lower().split('.')[-1] if '.' in media.name else ''
+                    if file_ext in ['mp4', 'avi', 'mov', 'wmv', 'flv', 'mkv', 'webm']:
+                        media_type = "video"
+                    elif file_ext in ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg']:
+                        media_type = "image"
+                
                 media_dict = {
                     "id": media.id,
                     "carouselId": media.carousel_id,
                     "name": media.name,
-                    "mediaType": media.type,
-                    "mediaUrl": media.url,
+                    "type": media.type if media.type else media_type,  # 如果数据库中有类型则使用，否则使用根据后缀判断的类型
+                    "url": media.url,
                     "externalLink": media.external_link,
                     "sort": media.sort
                 }
@@ -192,12 +201,21 @@ class CarouselService:
         # 转换为媒体模型列表
         media_models = []
         for media in media_list:
+            # 根据文件名后缀判断媒体类型
+            media_type = "image"  # 默认为图片类型
+            if media.name:
+                file_ext = media.name.lower().split('.')[-1] if '.' in media.name else ''
+                if file_ext in ['mp4', 'avi', 'mov', 'wmv', 'flv', 'mkv', 'webm']:
+                    media_type = "video"
+                elif file_ext in ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg']:
+                    media_type = "image"
+            
             media_dict = {
                 "id": media.id,
                 "carouselId": media.carousel_id,
                 "name": media.name,
-                "mediaType": media.type,
-                "mediaUrl": media.url,
+                "type": media.type if media.type else media_type,  # 如果数据库中有类型则使用，否则使用根据后缀判断的类型
+                "url": media.url,
                 "externalLink": media.external_link,
                 "sort": media.sort
             }

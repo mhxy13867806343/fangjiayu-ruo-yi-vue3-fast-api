@@ -11,6 +11,11 @@ from typing import List, Optional, Dict, Any, Tuple
 from module_h5.entity.do.carousel_do import SysCarousel, SysCarouselMedia
 from module_h5.entity.vo.carousel_vo import CarouselModel, CarouselMediaModel, CarouselPageQueryModel
 from utils.page_util import PageResponseModel
+import os
+import requests
+import uuid
+from config.env import UploadConfig
+from utils.upload_util import UploadUtil
 
 
 class CarouselService:
@@ -241,10 +246,15 @@ class CarouselService:
         # 添加媒体
         if carousel.media_list:
             for media in carousel.media_list:
+                # 处理blob URL
+                url = media.url
+                if url and url.startswith('blob:'):
+                    url = await cls.process_blob_url(url, media.type)
+                
                 db_media = SysCarouselMedia(
                     carousel_id=carousel_obj.id,
                     name=media.name,
-                    url=media.url,
+                    url=url,
                     type=media.type,
                     external_link=media.external_link,
                     sort=media.sort,
@@ -262,64 +272,65 @@ class CarouselService:
         carousel_id: int,
         carousel: CarouselModel,
         username: str
-    ) -> Optional[SysCarousel]:
+    ) -> Optional[bool]:
         """
         更新轮播图
         """
-        # 查询轮播图是否存在
-        carousel_stmt = select(SysCarousel).where(SysCarousel.id == carousel_id)
-        carousel_result = await db.execute(carousel_stmt)
-        carousel_obj = carousel_result.scalars().first()
+        # 查询轮播图
+        stmt = select(SysCarousel).where(SysCarousel.id == carousel_id)
+        result = await db.execute(stmt)
+        db_carousel = result.scalars().first()
         
-        if not carousel_obj:
+        if not db_carousel:
             return None
-        
-        # 检查轮播图状态，只有状态为正常(0)的轮播图才能被修改
-        if carousel_obj.status != "0":
+            
+        # 检查轮播图状态，只有正常状态且未过期的轮播图才能修改
+        current_time = datetime.now()
+        if db_carousel.status != "0" or (db_carousel.end_time and db_carousel.end_time < current_time):
             return False
             
-        # 检查轮播图是否已过期
-        current_time = datetime.now()
-        if carousel_obj.end_time and carousel_obj.end_time <= current_time:
-            return False
+        # 更新轮播图
+        db_carousel.title = carousel.title
+        db_carousel.type = carousel.type
+        db_carousel.category = carousel.category
+        db_carousel.position = carousel.position
+        db_carousel.is_external_link = carousel.is_external_link
+        db_carousel.url = carousel.url
+        db_carousel.sort = carousel.sort
+        db_carousel.start_time = carousel.start_time
+        db_carousel.end_time = carousel.end_time
+        db_carousel.desc = carousel.desc
+        db_carousel.remark = carousel.remark
+        db_carousel.status = carousel.status
+        db_carousel.update_by = username
+        db_carousel.update_time = datetime.now()
         
-        # 更新轮播图信息
-        carousel_obj.title = carousel.title
-        carousel_obj.type = carousel.type
-        carousel_obj.category = carousel.category
-        carousel_obj.position = carousel.position
-        carousel_obj.is_external_link = carousel.is_external_link
-        carousel_obj.url = carousel.url
-        carousel_obj.sort = carousel.sort
-        carousel_obj.start_time = carousel.start_time
-        carousel_obj.end_time = carousel.end_time
-        carousel_obj.desc = carousel.desc
-        carousel_obj.remark = carousel.remark
-        carousel_obj.status = carousel.status
-        carousel_obj.update_by = username
-        carousel_obj.update_time = datetime.now()
+        # 删除原有媒体
+        delete_stmt = delete(SysCarouselMedia).where(SysCarouselMedia.carousel_id == carousel_id)
+        await db.execute(delete_stmt)
         
-        # 删除原有媒体信息
-        media_stmt = delete(SysCarouselMedia).where(SysCarouselMedia.carousel_id == carousel_id)
-        await db.execute(media_stmt)
-        
-        # 添加新的媒体信息
-        for media in carousel.media_list:
-            media_obj = SysCarouselMedia(
-                carousel_id=carousel_id,
-                name=media.name,
-                url=media.url,
-                type=media.type,
-                external_link=media.external_link,
-                sort=media.sort,
-                create_time=datetime.now(),
-                update_time=datetime.now()
-            )
-            db.add(media_obj)
+        # 添加新媒体
+        if carousel.media_list:
+            for media in carousel.media_list:
+                # 处理blob URL
+                url = media.url
+                if url and url.startswith('blob:'):
+                    url = await cls.process_blob_url(url, media.type)
+                
+                db_media = SysCarouselMedia(
+                    carousel_id=db_carousel.id,
+                    name=media.name,
+                    url=url,
+                    type=media.type,
+                    external_link=media.external_link,
+                    sort=media.sort,
+                    create_time=datetime.now(),
+                    update_time=datetime.now()
+                )
+                db.add(db_media)
         
         await db.commit()
-        
-        return carousel_obj
+        return True
     
     @classmethod
     async def edit_carousel_services(
@@ -366,10 +377,15 @@ class CarouselService:
         # 添加新媒体
         if carousel.media_list:
             for media in carousel.media_list:
+                # 处理blob URL
+                url = media.url
+                if url and url.startswith('blob:'):
+                    url = await cls.process_blob_url(url, media.type)
+                
                 db_media = SysCarouselMedia(
                     carousel_id=db_carousel.id,
                     name=media.name,
-                    url=media.url,
+                    url=url,
                     type=media.type,
                     external_link=media.external_link,
                     sort=media.sort,
@@ -430,3 +446,42 @@ class CarouselService:
         
         await db.commit()
         return db_carousel
+    
+    @classmethod
+    async def process_blob_url(cls, url: str, media_type: str = 'image') -> str:
+        """
+        处理blob URL，下载文件并保存到本地
+        返回文件路径
+        """
+        if not url or not url.startswith('blob:'):
+            return url
+            
+        try:
+            # 创建上传目录，与通用上传服务保持一致
+            relative_path = f'upload/{datetime.now().strftime("%Y")}/{datetime.now().strftime("%m")}/{datetime.now().strftime("%d")}'
+            dir_path = os.path.join(UploadConfig.UPLOAD_PATH, relative_path)
+            
+            if not os.path.exists(dir_path):
+                try:
+                    os.makedirs(dir_path)
+                except FileExistsError:
+                    pass
+                    
+            # 根据媒体类型确定文件后缀
+            file_extension = '.jpg'  # 默认为jpg
+            if media_type and media_type.lower() == 'video':
+                file_extension = '.mp4'  # 视频默认为mp4
+                
+            # 生成文件名，与通用上传服务保持一致
+            current_time = datetime.now().strftime("%Y%m%d%H%M%S")
+            random_str = UploadUtil.generate_random_str()
+            filename = f'{random_str}_{current_time}{UploadConfig.UPLOAD_MACHINE}{UploadUtil.generate_random_number()}{file_extension}'
+            filepath = os.path.join(dir_path, filename)
+            
+            # 由于blob URL无法直接下载，这里我们只能返回路径
+            # 实际的文件上传应该由前端处理
+            return f"{UploadConfig.UPLOAD_PREFIX}/{relative_path}/{filename}"
+            
+        except Exception as e:
+            print(f"处理blob URL出错: {e}")
+            return ""

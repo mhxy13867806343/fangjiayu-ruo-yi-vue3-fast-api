@@ -56,6 +56,54 @@ const getPositionName = (position) => {
   return option ? option.label : position;
 };
 
+// 获取完整的媒体URL
+const getFullMediaUrl = (url) => {
+  if (!url) return '';
+  
+  // 如果已经是完整URL或blob URL，直接返回
+  if (url.startsWith('http') || url.startsWith('blob:')) {
+    return url;
+  }
+  
+  // 确保URL以/开头
+  if (!url.startsWith('/')) {
+    url = '/' + url;
+  }
+  
+  // 获取当前环境的API基础路径
+  const baseApi = import.meta.env.VITE_APP_BASE_API || '';
+  
+  // 使用当前页面的协议和主机名
+  const protocol = window.location.protocol;
+  const host = window.location.host;
+  
+  // 如果baseApi是以/开头的相对路径，则需要拼接完整URL
+  if (baseApi.startsWith('/')) {
+    return `${protocol}//${host}${url}`;
+  } else {
+    // 如果baseApi已经是完整URL，则直接使用
+    return `${baseApi}${url}`;
+  }
+};
+
+// 获取媒体URL
+const getMediaUrl = (media) => {
+  if (!media) return '';
+  
+  // 如果URL为空，尝试使用name作为备选
+  let url = media.url;
+  if (!url && media.name) {
+    // 构建基于文件名的URL
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    url = `/profile/upload/${year}/${month}/${day}/${media.name}`;
+  }
+  
+  return getFullMediaUrl(url);
+};
+
 // 新增按钮操作
 const handleAdd = () => {
   reset();
@@ -392,8 +440,8 @@ onMounted(() => {
                   :form.mediaList.length==2?'media-item-02':'media-item-03'
                   ]">
                     <div class="media-preview">
-                      <video v-if="element.type === 'video'" :src="element.url" controls class="media-preview-content"></video>
-                      <img v-else :src="element.url" class="media-preview-content" />
+                      <video v-if="element.type === 'video'" :src="getMediaUrl(element)" controls class="media-preview-content"></video>
+                      <img v-else :src="getMediaUrl(element)" class="media-preview-content" />
                     </div>
                     <div class="media-info">
                       <div class="media-name">{{ element.name }}</div>

@@ -2,6 +2,36 @@ import { ref } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { uploadMedia } from '@/api/h5/carousel';
 
+// 获取完整的媒体URL
+const getFullMediaUrl = (url) => {
+  if (!url) return '';
+  
+  // 如果已经是完整URL或blob URL，直接返回
+  if (url.startsWith('http') || url.startsWith('blob:')) {
+    return url;
+  }
+  
+  // 确保URL以/开头
+  if (!url.startsWith('/')) {
+    url = '/' + url;
+  }
+  
+  // 获取当前环境的API基础路径
+  const baseApi = import.meta.env.VITE_APP_BASE_API || '';
+  
+  // 使用当前页面的协议和主机名
+  const protocol = window.location.protocol;
+  const host = window.location.host;
+  
+  // 如果baseApi是以/开头的相对路径，则需要拼接完整URL
+  if (baseApi.startsWith('/')) {
+    return `${protocol}//${host}${url}`;
+  } else {
+    // 如果baseApi已经是完整URL，则直接使用
+    return `${baseApi}${url}`;
+  }
+};
+
 export default function useCarouselMedia(form) {
   // 确保表单的mediaList字段初始化
   const ensureMediaList = () => {
@@ -156,26 +186,34 @@ export default function useCarouselMedia(form) {
     uploadMedia(file.raw).then(response => {
       console.log('文件上传响应:', response);
       
-      // 检查响应结构，获取文件URL
+      // 检查响应结构，获取文件路径
       let fileUrl = '';
       
       if (response && response.is_success && response.result) {
+        // 优先使用url字段（完整URL）
         if (response.result.url) {
           fileUrl = response.result.url;
         } else if (response.result.fileName) {
           fileUrl = response.result.fileName;
         }
       } else if (response && response.data) {
-        if (typeof response.data === 'string') {
-          fileUrl = response.data;
-        } else if (response.data.url) {
+        // 优先使用url字段（完整URL）
+        if (response.data.url) {
           fileUrl = response.data.url;
         } else if (response.data.fileName) {
           fileUrl = response.data.fileName;
+        } else if (typeof response.data === 'string') {
+          fileUrl = response.data;
         }
       }
       
-      if (!fileUrl) {
+      console.log('获取到的文件URL:', fileUrl);
+      
+      // 确保我们有完整的URL
+      const fullUrl = getFullMediaUrl(fileUrl);
+      console.log('完整的文件URL:', fullUrl);
+      
+      if (!fullUrl) {
         console.warn('无法从响应中获取文件URL:', response);
         // 使用本地URL作为备用
         fileUrl = URL.createObjectURL(file.raw);
@@ -186,15 +224,15 @@ export default function useCarouselMedia(form) {
       form.value.mediaList.push({
         uid: file.uid,
         name: file.name,
-        url: fileUrl,
+        url: fullUrl,
         type: isVideo ? 'video' : 'image',
         size: file.raw.size,
         externalLink: '',
         // 如果使用的是真实URL，则不需要保存原始文件对象
-        file: fileUrl.startsWith('blob:') ? file.raw : null
+        file: fullUrl.startsWith('blob:') ? file.raw : null
       });
 
-      console.log(`添加文件: ${file.name}, 类型: ${isVideo ? 'video' : 'image'}, URL: ${fileUrl}, 总数: ${form.value.mediaList.length}`);
+      console.log(`添加文件: ${file.name}, 类型: ${isVideo ? 'video' : 'image'}, URL: ${fullUrl}, 总数: ${form.value.mediaList.length}`);
 
       // 清除进度
       setTimeout(() => {
@@ -259,6 +297,7 @@ export default function useCarouselMedia(form) {
           
           // 处理后端返回的标准格式
           if (response && response.is_success && response.result) {
+            // 优先使用url字段（完整URL）
             if (response.result.url) {
               fileUrl = response.result.url;
             } else if (response.result.fileName) {
@@ -267,16 +306,23 @@ export default function useCarouselMedia(form) {
           } 
           // 兼容其他可能的返回格式
           else if (response && response.data) {
-            if (typeof response.data === 'string') {
-              fileUrl = response.data;
-            } else if (response.data.url) {
+            // 优先使用url字段（完整URL）
+            if (response.data.url) {
               fileUrl = response.data.url;
             } else if (response.data.fileName) {
               fileUrl = response.data.fileName;
+            } else if (typeof response.data === 'string') {
+              fileUrl = response.data;
             }
           }
           
-          if (!fileUrl) {
+          console.log('获取到的文件URL:', fileUrl);
+          
+          // 确保我们有完整的URL
+          const fullUrl = getFullMediaUrl(fileUrl);
+          console.log('完整的文件URL:', fullUrl);
+          
+          if (!fullUrl) {
             console.warn('无法从响应中获取文件URL:', response);
             return {
               ...item,
@@ -287,14 +333,14 @@ export default function useCarouselMedia(form) {
           // 更新媒体列表中的URL
           const index = form.value.mediaList.findIndex(media => media.uid === item.uid);
           if (index !== -1) {
-            form.value.mediaList[index].url = fileUrl;
+            form.value.mediaList[index].url = fullUrl;
             form.value.mediaList[index].file = null; // 清除原始文件对象
           }
           
           // 返回上传结果
           return {
             ...item,
-            url: fileUrl,
+            url: fullUrl,
             file: null // 清除原始文件对象
           };
         } catch (error) {
@@ -336,6 +382,7 @@ export default function useCarouselMedia(form) {
     processFile,
     removeMedia,
     uploadFiles,
-    resetMedia
+    resetMedia,
+    getFullMediaUrl
   };
 }

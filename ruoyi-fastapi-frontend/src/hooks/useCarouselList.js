@@ -33,13 +33,13 @@ export default function useCarouselList() {
       position: queryParams.value.position,
       dateRange: queryParams.value.dateRange
     }).then(response => {
-     const {code,total,rows,msg}=response
+     const {code,total:count,rows,msg}=response
       ElMessage[code===200?'success':'error']({
         message: msg,
         type: code===200?'success':'error'
       })
       carouselList.value = rows||[];
-      total.value =total ||0
+      total.value =count ||0
       loading.value = false;
     }).catch(() => {
       loading.value = false;

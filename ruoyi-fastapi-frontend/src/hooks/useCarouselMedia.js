@@ -126,7 +126,7 @@ export default function useCarouselMedia(form) {
     
     // 检查文件大小限制
     if (file.raw.size > 50 * 1024 * 1024) {
-      ElMessage.error('11文件大小不能超过50MB');
+      ElMessage.error('文件大小不能超过50MB');
       return false;
     }
     
@@ -152,32 +152,59 @@ export default function useCarouselMedia(form) {
     // 模拟上传进度
     simulateUploadProgress(file.uid);
     
-    // 生成本地预览URL
-    const fileUrl = URL.createObjectURL(file.raw);
-    
-    // 添加到媒体列表用于预览
-    form.value.mediaList.push({
-      uid: file.uid,
-      name: file.name,
-      url: fileUrl,
-      type: isVideo ? 'video' : 'image',
-      size: file.raw.size,
-      externalLink: '',
-      file: file.raw // 保存原始文件对象，用于后续上传
-    });
+    // 立即上传文件，获取真实URL
+    uploadMedia(file.raw).then(response => {
+      console.log('文件上传响应:', response);
+      
+      // 检查响应结构，获取文件URL
+      let fileUrl = '';
+      
+      if (response && response.is_success && response.result) {
+        if (response.result.url) {
+          fileUrl = response.result.url;
+        } else if (response.result.fileName) {
+          fileUrl = response.result.fileName;
+        }
+      } else if (response && response.data) {
+        if (typeof response.data === 'string') {
+          fileUrl = response.data;
+        } else if (response.data.url) {
+          fileUrl = response.data.url;
+        } else if (response.data.fileName) {
+          fileUrl = response.data.fileName;
+        }
+      }
+      
+      if (!fileUrl) {
+        console.warn('无法从响应中获取文件URL:', response);
+        // 使用本地URL作为备用
+        fileUrl = URL.createObjectURL(file.raw);
+        ElMessage.warning(`文件 ${file.name} 上传成功，但无法获取URL，将使用临时URL`);
+      }
+      
+      // 添加到媒体列表用于预览
+      form.value.mediaList.push({
+        uid: file.uid,
+        name: file.name,
+        url: fileUrl,
+        type: isVideo ? 'video' : 'image',
+        size: file.raw.size,
+        externalLink: '',
+        // 如果使用的是真实URL，则不需要保存原始文件对象
+        file: fileUrl.startsWith('blob:') ? file.raw : null
+      });
 
-    console.log(`添加文件: ${file.name}, 类型: ${isVideo ? 'video' : 'image'}, 总数: ${form.value.mediaList.length}`);
+      console.log(`添加文件: ${file.name}, 类型: ${isVideo ? 'video' : 'image'}, URL: ${fileUrl}, 总数: ${form.value.mediaList.length}`);
 
-    // 添加到待上传文件列表
-    pendingUploadFiles.value.push({
-      uid: file.uid,
-      file: file.raw
-    });
-
-    // 清除进度
-    setTimeout(() => {
+      // 清除进度
+      setTimeout(() => {
+        delete uploadProgress.value[file.uid];
+      }, 1000);
+    }).catch(error => {
+      console.error('文件上传失败:', error);
+      ElMessage.error(`文件 ${file.name} 上传失败: ${error.message || '未知错误'}`);
       delete uploadProgress.value[file.uid];
-    }, 1000);
+    });
     
     return true;
   };
@@ -210,12 +237,18 @@ export default function useCarouselMedia(form) {
   // 实际上传文件（在表单提交时调用）
   const uploadFiles = async () => {
     ensureMediaList();
-    if (pendingUploadFiles.value.length === 0) {
-      return Promise.resolve([]);
+    
+    // 过滤出需要上传的文件（仍然使用blob URL的文件）
+    const filesToUpload = form.value.mediaList.filter(item => 
+      item.file && item.url && item.url.startsWith('blob:')
+    );
+    
+    if (filesToUpload.length === 0) {
+      return Promise.resolve(form.value.mediaList);
     }
 
     try {
-      const uploadPromises = pendingUploadFiles.value.map(async (item) => {
+      const uploadPromises = filesToUpload.map(async (item) => {
         try {
           // 调用实际的上传API
           const response = await uploadMedia(item.file);
@@ -224,8 +257,7 @@ export default function useCarouselMedia(form) {
           // 检查响应结构，兼容不同的返回格式
           let fileUrl = '';
           
-          // 处理后端返回的标准格式：
-          // {is_success: true, result: {url: '完整URL', fileName: '文件路径'}, message: '上传成功'}
+          // 处理后端返回的标准格式
           if (response && response.is_success && response.result) {
             if (response.result.url) {
               fileUrl = response.result.url;
@@ -246,31 +278,29 @@ export default function useCarouselMedia(form) {
           
           if (!fileUrl) {
             console.warn('无法从响应中获取文件URL:', response);
-            // 使用本地URL作为备用，但标记为上传失败
             return {
-              uid: item.uid,
-              url: URL.createObjectURL(item.file),
-              name: item.file.name,
-              type: item.file.type.startsWith('video/') ? 'video' : 'image',
+              ...item,
               uploadFailed: true
             };
           }
           
+          // 更新媒体列表中的URL
+          const index = form.value.mediaList.findIndex(media => media.uid === item.uid);
+          if (index !== -1) {
+            form.value.mediaList[index].url = fileUrl;
+            form.value.mediaList[index].file = null; // 清除原始文件对象
+          }
+          
           // 返回上传结果
           return {
-            uid: item.uid,
+            ...item,
             url: fileUrl,
-            name: item.file.name,
-            type: item.file.type.startsWith('video/') ? 'video' : 'image'
+            file: null // 清除原始文件对象
           };
         } catch (error) {
           console.error('文件上传失败:', error);
-          // 返回带有错误标记的结果，但不中断整个上传流程
           return {
-            uid: item.uid,
-            url: URL.createObjectURL(item.file), // 使用本地URL作为备用
-            name: item.file.name,
-            type: item.file.type.startsWith('video/') ? 'video' : 'image',
+            ...item,
             uploadFailed: true
           };
         }
@@ -280,14 +310,12 @@ export default function useCarouselMedia(form) {
       const uploadResults = await Promise.all(uploadPromises);
       console.log('所有文件上传结果:', uploadResults);
       
-      // 清空待上传列表
-      pendingUploadFiles.value = [];
-      
-      return uploadResults;
+      // 返回完整的媒体列表（包括已经有URL的和新上传的）
+      return form.value.mediaList;
     } catch (error) {
       console.error('文件上传过程中发生错误:', error);
       ElMessage.error('文件上传失败: ' + (error.message || '未知错误'));
-      return [];
+      return form.value.mediaList;
     }
   };
 

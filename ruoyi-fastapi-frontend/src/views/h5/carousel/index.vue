@@ -429,7 +429,9 @@ onMounted(() => {
                 :show-file-list="false"
                 :on-change="handleFileChange"
                 :on-exceed="handleExceed"
-                multiple
+                :limit="9"
+                :multiple="true"
+                accept="image/*,video/*"
               >
                 <el-button 
                   type="primary" 

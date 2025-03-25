@@ -34,9 +34,9 @@ export default function useCarouselMedia(form) {
   // 文件上传前的校验
   const beforeUpload = (file) => {
     // 检查文件大小
-    const isLt10M = file.size / 1024 / 1024 < 10;
+    const isLt10M = file.size / 1024 / 1024 < 50;
     if (!isLt10M) {
-      ElMessage.error('文件大小不能超过 10MB!');
+      ElMessage.error('文件大小不能超过 50MB!');
       return false;
     }
 
@@ -97,19 +97,7 @@ export default function useCarouselMedia(form) {
       return;
     }
 
-    // 去重处理
-    const uniqueFiles = [];
-    const uniqueFileKeys = new Set();
-    
-    for (const f of fileList) {
-      if (!f.raw) continue;
-      
-      const fileKey = `${f.name}-${f.size}`;
-      if (!uniqueFileKeys.has(fileKey)) {
-        uniqueFileKeys.add(fileKey);
-        uniqueFiles.push(f);
-      }
-    }
+    console.log('文件变化:', file.name, '当前媒体列表长度:', form.value.mediaList.length);
 
     // 如果已经有9个或以上的文件，则不再添加
     if (form.value.mediaList.length >= 9) {
@@ -117,39 +105,28 @@ export default function useCarouselMedia(form) {
       return;
     }
 
-    // 计算还可以添加多少个文件
-    const remainingSlots = 9 - form.value.mediaList.length;
+    // 检查是否已经存在相同文件（根据文件名和大小）
+    const isDuplicate = form.value.mediaList.some(item => 
+      item.name === file.name && 
+      (!item.size || item.size === file.raw.size)
+    );
     
-    // 只处理剩余槽位数量的文件
-    const filesToProcess = uniqueFiles.slice(0, remainingSlots);
-
-    if (filesToProcess.length > 0) {
-      if (uniqueFiles.length > remainingSlots) {
-        ElMessage.info(`您选择了${uniqueFiles.length}个文件，但只能再添加${remainingSlots}个，将自动取前${remainingSlots}个文件`);
-      }
-
-      // 处理每个文件
-      filesToProcess.forEach(f => {
-        // 检查是否已经存在相同文件名和大小的文件，避免重复添加
-        const fileKey = `${f.name}-${f.size}`;
-        const existingFileIndex = form.value.mediaList.findIndex(item => 
-          item.name === f.name && item.size === f.size
-        );
-        
-        if (existingFileIndex === -1) {
-          processFile(f);
-        }
-      });
+    if (isDuplicate) {
+      ElMessage.warning(`文件 ${file.name} 已存在，请勿重复添加`);
+      return;
     }
+
+    // 直接处理当前文件
+    processFile(file);
   };
 
   // 处理单个文件的上传和预览
   const processFile = (file) => {
-    if (!file) return false;
+    if (!file || !file.raw) return false;
     
     // 检查文件大小限制
-    if (file.size > 10 * 1024 * 1024) {
-      ElMessage.error('文件大小不能超过10MB');
+    if (file.raw.size > 50 * 1024 * 1024) {
+      ElMessage.error('11文件大小不能超过50MB');
       return false;
     }
     
@@ -172,54 +149,37 @@ export default function useCarouselMedia(form) {
       return false;
     }
     
-    // 检查是否已经存在相同文件（根据文件名和大小）
-    const isDuplicate = form.value.mediaList.some(item => 
-      item.name === file.name && 
-      item.size === file.raw.size
-    );
-    
-    if (isDuplicate) {
-      ElMessage.warning(`文件 ${file.name} 已存在，请勿重复添加`);
-      return false;
-    }
-    
     // 模拟上传进度
     simulateUploadProgress(file.uid);
     
-    // 本地预览
+    // 生成本地预览URL
+    const fileUrl = URL.createObjectURL(file.raw);
+    
+    // 添加到媒体列表用于预览
+    form.value.mediaList.push({
+      uid: file.uid,
+      name: file.name,
+      url: fileUrl,
+      type: isVideo ? 'video' : 'image',
+      size: file.raw.size,
+      externalLink: '',
+      file: file.raw // 保存原始文件对象，用于后续上传
+    });
+
+    console.log(`添加文件: ${file.name}, 类型: ${isVideo ? 'video' : 'image'}, 总数: ${form.value.mediaList.length}`);
+
+    // 添加到待上传文件列表
+    pendingUploadFiles.value.push({
+      uid: file.uid,
+      file: file.raw
+    });
+
+    // 清除进度
     setTimeout(() => {
-      // 再次检查是否已经达到上限（可能在延迟期间已经添加了其他文件）
-      if (form.value.mediaList.length >= 9) {
-        delete uploadProgress.value[file.uid];
-        return;
-      }
-
-      const fileUrl = URL.createObjectURL(file.raw);
-      
-      // 添加到媒体列表用于预览
-      form.value.mediaList.push({
-        uid: file.uid,
-        name: file.name,
-        url: fileUrl,
-        type: isVideo ? 'video' : 'image',
-        size: file.raw.size,
-        externalLink: '',
-        file: file.raw // 保存原始文件对象，用于后续上传
-      });
-
-      console.log(`添加文件: ${file.name}, 类型: ${isVideo ? 'video' : 'image'}, 总数: ${form.value.mediaList.length}`);
-
-      // 添加到待上传文件列表
-      pendingUploadFiles.value.push({
-        uid: file.uid,
-        file: file.raw
-      });
-
-      // 清除进度
-      setTimeout(() => {
-        delete uploadProgress.value[file.uid];
-      }, 1000);
-    }, 1000); // 缩短延迟时间，提高响应速度
+      delete uploadProgress.value[file.uid];
+    }, 1000);
+    
+    return true;
   };
 
   // 移除媒体文件

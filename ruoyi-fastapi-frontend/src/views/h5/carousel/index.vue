@@ -121,7 +121,7 @@ const handleUpdate = async (row) => {
           // 确保类型字段正确
           if (item.type !== 'video' && item.type !== 'image') {
             // 根据URL判断类型
-            item.type = item.url.match(/\.(mp4|webm|ogg)$/i) ? 'video' : 'image';
+            item.type = item.url?.match(/\.(mp4|webm|ogg)$/i) ? 'video' : 'image';
           }
           
           // 转换字段名称为驼峰命名

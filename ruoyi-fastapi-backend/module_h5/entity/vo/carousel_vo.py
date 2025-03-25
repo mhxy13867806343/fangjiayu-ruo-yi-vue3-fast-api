@@ -17,8 +17,8 @@ class CarouselMediaModel(BaseModel):
     id: Optional[int] = Field(None, description="媒体ID")
     carousel_id: Optional[int] = Field(None, description="轮播图ID")
     name: Optional[str] = Field(None, description="媒体名称")
-    url: str = Field(..., description="媒体地址")
-    type: str = Field(..., description="媒体类型")
+    url: Optional[str] = Field(None, description="媒体地址")
+    type: Optional[str] = Field(None, description="媒体类型")
     external_link: Optional[str] = Field(None, description="外部链接")
     sort: Optional[int] = Field(0, description="排序")
 

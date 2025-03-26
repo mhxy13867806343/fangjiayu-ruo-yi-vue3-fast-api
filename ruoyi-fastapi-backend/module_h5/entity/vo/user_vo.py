@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import List, Optional
-from pydantic import BaseModel, ConfigDict, Field, EmailStr
+from pydantic import BaseModel, ConfigDict, Field, EmailStr, validator
 from pydantic.alias_generators import to_camel
 from module_admin.annotation.pydantic_annotation import as_query
 
@@ -31,10 +31,11 @@ class H5UserPageQueryModel(H5UserBaseModel):
 class H5UserModel(H5UserBaseModel):
     """H5用户模型"""
     id: Optional[int] = Field(None, description="用户ID")
+    user_id: Optional[str] = Field(None, description="用户唯一标识符")
     username: str = Field(..., description="登录名")
     nickname: str = Field(..., description="用户昵称")
     password: Optional[str] = Field(None, description="密码")
-    email: Optional[EmailStr] = Field(None, description="用户邮箱")
+    email: Optional[str] = Field(None, description="用户邮箱")
     phone: Optional[str] = Field(None, description="手机号码")
     avatar: Optional[str] = Field(None, description="头像地址")
     status: Optional[str] = Field("0", description="帐号状态（0正常 1停用）")
@@ -49,6 +50,12 @@ class H5UserModel(H5UserBaseModel):
     mood: Optional[str] = Field(None, description="心情")
     remark: Optional[str] = Field(None, description="备注")
 
+    @validator('email', pre=True)
+    def empty_str_to_none(cls, v):
+        if v == "":
+            return None
+        return v
+
 
 class H5UserDetailModel(H5UserModel):
     """H5用户详情模型"""
@@ -58,6 +65,8 @@ class H5UserDetailModel(H5UserModel):
     register_days: Optional[int] = Field(0, description="注册天数")
     create_time: Optional[datetime] = Field(None, description="创建时间")
     update_time: Optional[datetime] = Field(None, description="更新时间")
+    
+    model_config = ConfigDict(from_attributes=True)
 
 
 class H5UserRegisterModel(H5UserBaseModel):
@@ -136,7 +145,9 @@ class DeleteH5UserModel(H5UserBaseModel):
     user_ids: str = Field(..., description="用户ID字符串，多个以逗号分隔")
 
 
-class ChangeH5UserStatusModel(H5UserBaseModel):
+class ChangeH5UserStatusModel(BaseModel):
     """修改H5用户状态模型"""
-    user_id: int = Field(..., description="用户ID")
+    user_id: str = Field(..., description="用户ID")
     status: str = Field(..., description="账号状态（0正常 1停用）")
+    
+    model_config = ConfigDict(from_attributes=True)

@@ -81,6 +81,8 @@ class H5UserService:
         user_list = []
         for user in users:
             user_dto = H5UserDetailModel.model_validate(user)
+            # 确保user_id为字符串
+            user_dto.user_id = str(user.user_id)
             # 计算注册天数
             if user.register_time:
                 delta = datetime.now() - user.register_time
@@ -91,7 +93,7 @@ class H5UserService:
             user_list.append(user_dto)
         
         return user_list, total
-    
+
     @classmethod
     async def get_user_by_id(
         cls, 
@@ -109,6 +111,8 @@ class H5UserService:
             return None
         
         user_dto = H5UserDetailModel.model_validate(user)
+        # 确保user_id为字符串
+        user_dto.user_id = str(user.user_id)
         # 计算注册天数
         if user.register_time:
             delta = datetime.now() - user.register_time
@@ -167,7 +171,13 @@ class H5UserService:
         await db.commit()
         await db.refresh(new_user)
         
-        return H5UserDetailModel.model_validate(new_user)
+        # 创建用户详情模型并返回
+        user_detail = H5UserDetailModel.model_validate(new_user)
+        
+        # 确保user_id字段为字符串格式
+        user_detail.user_id = str(new_user.user_id)
+        
+        return user_detail
     
     @classmethod
     async def update_user(
@@ -239,14 +249,20 @@ class H5UserService:
     @classmethod
     async def change_user_status(
         cls, 
-        user_id: int, 
+        user_id: str, 
         status: str, 
         db: AsyncSession = Depends(get_db)
     ) -> bool:
         """
         修改用户状态
         """
-        stmt = select(H5User).where(H5User.user_id == user_id)
+        # 确保user_id是整数类型
+        try:
+            user_id_int = int(user_id)
+        except (ValueError, TypeError):
+            return False
+            
+        stmt = select(H5User).where(H5User.user_id == user_id_int)
         result = await db.execute(stmt)
         user = result.scalars().first()
         

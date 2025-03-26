@@ -9,17 +9,11 @@ def add_cors_middleware(app: FastAPI):
     :param app: FastAPI对象
     :return:
     """
-    # 前端页面url
-    origins = [
-        'http://localhost:80',
-        'http://127.0.0.1:80',
-    ]
-
     # 后台api允许跨域
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=origins,
+        allow_origins=["*"],  # 允许所有来源
         allow_credentials=True,
-        allow_methods=['*'],
-        allow_headers=['*'],
+        allow_methods=["*"],
+        allow_headers=["*"],
     )

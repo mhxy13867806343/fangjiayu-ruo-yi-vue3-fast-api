@@ -95,7 +95,7 @@ async def delete_user(
     return ResponseUtil.success(data=True)
 
 
-@userController.put("/changeStatus", summary="修改用户状态")
+@userController.put("/status/change", summary="修改用户状态")
 async def change_user_status(
     status_model: ChangeH5UserStatusModel,
     current_user: CurrentUserModel = Depends(CheckUserInterfaceAuth("h5:user:edit")),

@@ -46,11 +46,11 @@ export function delUser(userId) {
 // 修改用户状态
 export function changeUserStatus(userId, status) {
   const data = {
-    userId,
+    user_id: userId,
     status
   }
   return request({
-    url: '/h5/user/changeStatus',
+    url: '/h5/user/status/change',
     method: 'put',
     data: data
   })

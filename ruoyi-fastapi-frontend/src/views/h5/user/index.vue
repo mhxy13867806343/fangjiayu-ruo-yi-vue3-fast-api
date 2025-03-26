@@ -1,4 +1,3 @@
-
 <script setup>
 import { ref, reactive, onMounted, computed } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
@@ -56,7 +55,8 @@ const form = reactive({
   phoneNumber: undefined,
   password: "123456",
   status: "0",
-  remark: undefined
+  remark: undefined,
+  email: undefined
 });
 
 // 表单校验
@@ -75,6 +75,7 @@ const getList = async () => {
   loading.value = true;
   try {
     const response = await listUser(queryParams);
+    console.log('API返回的数据结构:', response);
     userList.value = response.data.rows;
     total.value = response.data.total;
   } finally {
@@ -96,6 +97,7 @@ const reset = () => {
   form.password = "123456";
   form.status = "0";
   form.remark = undefined;
+  form.email = undefined;
   proxy.resetForm("userForm");
 };
 
@@ -120,15 +122,15 @@ const handleSelectionChange = (selection) => {
 
 // 状态修改
 const handleStatusChange = async (row) => {
-  const text = row.status === "0" ? "启用" : "停用";
-  try {
-    await ElMessageBox.confirm(`确认要${text}${row.username}用户吗?`);
-    await changeUserStatus(row.userId, row.status);
-    ElMessage.success(`${text}成功`);
-    getList();
-  } catch {
-    row.status = row.status === "0" ? "1" : "0";
-  }
+  const userId = row?.userId || ids.value;
+  // 切换状态：如果当前是启用(0)，则改为禁用(1)，反之亦然
+  const newStatus = row.status === '0' ? '1' : '0';
+  const statusText = newStatus === '1' ? '禁用' : '启用';
+  
+  await ElMessageBox.confirm(`是否确认${statusText}用户编号为${userId}的用户?`);
+  await changeUserStatus(userId, newStatus);
+  ElMessage.success(`${statusText}成功`);
+  getList();
 };
 
 // 新增按钮操作
@@ -152,26 +154,39 @@ const handleUpdate = async (row) => {
 const submitForm = () => {
   proxy.$refs["userForm"].validate(async valid => {
     if (valid) {
-      if (form.userId) {
-        await updateUser(form);
-        ElMessage.success("修改成功");
-      } else {
-        await addUser(form);
-        ElMessage.success("新增成功");
+      try {
+        // 转换数据格式，确保与后端模型匹配
+        const userData = {
+          ...form
+        };
+        
+        // 将 phoneNumber 转换为 phone
+        userData.phone = userData.phoneNumber;
+        delete userData.phoneNumber;
+        
+        // 如果没有昵称，使用用户名作为昵称
+        userData.nickname = userData.username;
+        
+        // 处理email字段，确保不发送空字符串
+        if (!userData.email || userData.email === '') {
+          delete userData.email; // 完全删除email字段，而不是设置为null
+        }
+        
+        if (form.userId) {
+          await updateUser(userData);
+          ElMessage.success("修改成功");
+        } else {
+          await addUser(userData);
+          ElMessage.success("新增成功");
+        }
+        open.value = false;
+        getList();
+      } catch (error) {
+        console.error("提交表单失败:", error);
+        ElMessage.error(error.message || "操作失败");
       }
-      open.value = false;
-      getList();
     }
   });
-};
-
-// 删除按钮操作
-const handleDelete = async (row) => {
-  const userIds = row?.userId || ids.value;
-  await ElMessageBox.confirm(`是否确认删除用户编号为${userIds}的数据项?`);
-  await delUser(userIds);
-  ElMessage.success("删除成功");
-  getList();
 };
 
 // 用户签到
@@ -317,9 +332,9 @@ onMounted(() => {
           plain
           icon="Delete"
           :disabled="multiple"
-          @click="handleDelete"
+          @click="handleStatusChange"
           v-hasPermi="['h5:user:remove']"
-        >删除</el-button>
+        >禁用/启用</el-button>
       </el-col>
     </el-row>
 
@@ -338,7 +353,12 @@ onMounted(() => {
       </el-table-column>
       <el-table-column label="注册时间" align="center" width="160">
         <template #default="scope">
-          {{ formatTime(scope.row.registerTime) }}
+          {{ formatTime(scope.row.register_time) }}
+        </template>
+      </el-table-column>
+      <el-table-column label="创建时间" align="center" width="160">
+        <template #default="scope">
+          {{ formatTime(scope.row.create_time) }}
         </template>
       </el-table-column>
       <el-table-column label="等级" align="center" width="100">
@@ -348,22 +368,29 @@ onMounted(() => {
       </el-table-column>
       <el-table-column label="签到天数" align="center" width="100">
         <template #default="scope">
-          {{ scope.row.checkinDays }} 天
-          <el-tag v-if="scope.row.continuousCheckinDays > 0" size="small" type="success">
-            连续{{ scope.row.continuousCheckinDays }}天
+          {{ scope.row.expPoints }} 天
+          <el-tag v-if="scope.row.expPoints > 0" size="small" type="success">
+            连续{{ scope.row.expPoints }}天
           </el-tag>
         </template>
       </el-table-column>
       <el-table-column label="心情" align="center" prop="mood" :show-overflow-tooltip="true" />
-      <el-table-column label="当前IP" align="center" prop="loginIp" />
+      <el-table-column label="当前IP" align="center" prop="login_ip" />
+      <el-table-column label="当前状态" align="center" prop="status" >
+        <template #default="scope">
+          {{  scope.row.status==="0"?'正常':'禁用'}}
+        </template>
+      </el-table-column>
       <el-table-column label="注册天数" align="center" width="100">
         <template #default="scope">
-          {{ formatRegisterDays(scope.row.registerDays) }}
+          {{ formatRegisterDays(scope.row.register_days) }}
         </template>
       </el-table-column>
       <el-table-column label="操作" align="center" width="200" class-name="small-padding fixed-width">
         <template #default="scope">
-          <el-button link type="primary" icon="Delete" @click="handleDelete(scope.row)" v-hasPermi="['h5:user:remove']">删除</el-button>
+          <el-button link type="primary" icon="Delete" @click="handleStatusChange(scope.row)" v-hasPermi="['h5:user:remove']">
+            {{  scope.row.status === '0' ? '禁用' : '启用'}}
+          </el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -384,6 +411,9 @@ onMounted(() => {
         </el-form-item>
         <el-form-item label="手机号码" prop="phoneNumber">
           <el-input v-model="form.phoneNumber" placeholder="请输入手机号码" maxlength="11" />
+        </el-form-item>
+        <el-form-item label="邮箱" prop="email">
+          <el-input v-model="form.email" placeholder="请输入邮箱" />
         </el-form-item>
         <el-form-item label="备注">
           <el-input v-model="form.remark" type="textarea" placeholder="请输入内容" />

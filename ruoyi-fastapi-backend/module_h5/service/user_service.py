@@ -87,6 +87,11 @@ class H5UserService:
             if user.register_time:
                 delta = datetime.now() - user.register_time
                 user_dto.register_days = delta.days
+                # 确保register_time字段被赋值
+                user_dto.register_time = user.register_time
+            # 确保create_time字段被赋值
+            if user.create_time:
+                user_dto.create_time = user.create_time
             # 手机号脱敏
             if user.phone and len(user.phone) == 11:
                 user_dto.phone = user.phone[:3] + "****" + user.phone[-4:]
@@ -117,6 +122,12 @@ class H5UserService:
         if user.register_time:
             delta = datetime.now() - user.register_time
             user_dto.register_days = delta.days
+        # 确保register_time字段被赋值
+        if user.register_time:
+            user_dto.register_time = user.register_time
+        # 确保create_time字段被赋值
+        if user.create_time:
+            user_dto.create_time = user.create_time
         # 手机号脱敏
         if user.phone and len(user.phone) == 11:
             user_dto.phone = user.phone[:3] + "****" + user.phone[-4:]
@@ -176,6 +187,10 @@ class H5UserService:
         
         # 确保user_id字段为字符串格式
         user_detail.user_id = str(new_user.user_id)
+        # 确保register_time字段被赋值
+        user_detail.register_time = new_user.register_time
+        # 确保create_time字段被赋值
+        user_detail.create_time = new_user.create_time
         
         return user_detail
     

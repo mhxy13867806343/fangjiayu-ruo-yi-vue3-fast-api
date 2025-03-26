@@ -43,11 +43,12 @@ async def get_user_list(
 @userController.get("/{user_id}", summary="获取用户详情")
 async def get_user_detail(
     user_id: str = Path(..., description="用户ID"),
+    request: Request = None,
     current_user: CurrentUserModel = Depends(CheckUserInterfaceAuth("h5:user:query")),
     db: AsyncSession = Depends(get_db)
 ):
     """获取用户详情"""
-    user = await H5UserService.get_user_detail(user_id, db)
+    user = await H5UserService.get_user_detail(user_id, db, request)
     if not user:
         return ResponseUtil.error("用户不存在")
     return ResponseUtil.success(data=user)
@@ -62,23 +63,44 @@ async def create_user(
 ):
     """创建用户"""
     try:
+        print(f"收到创建用户请求，用户数据: {user.dict()}")
+        print(f"请求头信息: {request.headers}")
+        print(f"客户端IP: {request.client.host}")
+        print(f"X-Forwarded-For: {request.headers.get('X-Forwarded-For')}")
+        
         new_user = await H5UserService.create_user(user, request, db)
+        print(f"创建用户成功，用户ID: {new_user.user_id}, 登录IP: {new_user.login_ip}")
         return ResponseUtil.success(data=new_user)
     except HTTPException as e:
+        print(f"创建用户失败，错误: {e.detail}")
         return ResponseUtil.error(e.detail)
+    except Exception as e:
+        print(f"创建用户失败，异常: {str(e)}")
+        return ResponseUtil.error(f"创建用户失败: {str(e)}")
 
 
 @userController.put("/edit/{user_id}", summary="更新用户")
 async def update_user(
     user_id: str = Path(..., description="用户ID"),
     user: H5UserModel = None,
+    request: Request = None,
     current_user: CurrentUserModel = Depends(CheckUserInterfaceAuth("h5:user:edit")),
     db: AsyncSession = Depends(get_db)
 ):
     """更新用户"""
-    updated_user = await H5UserService.update_user(user_id, user, db)
+    print(f"收到更新用户请求，用户ID: {user_id}, 数据: {user.dict() if user else None}")
+    
+    # 强制删除用户名属性，确保不会进行用户名检查
+    if hasattr(user, "username"):
+        print(f"删除用户名属性: {user.username}")
+        delattr(user, "username")
+    
+    updated_user = await H5UserService.update_user(user_id, user, request, db)
     if not updated_user:
+        print(f"用户不存在: {user_id}")
         return ResponseUtil.error("用户不存在")
+    
+    print(f"用户更新成功: {user_id}")
     return ResponseUtil.success(data=updated_user)
 
 

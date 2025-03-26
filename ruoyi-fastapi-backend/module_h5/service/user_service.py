@@ -199,13 +199,16 @@ class H5UserService:
     async def get_user_detail(
         cls, 
         user_id: str, 
-        db: AsyncSession = Depends(get_db)
+        db: AsyncSession = Depends(get_db),
+            request: Request = None
     ) -> Optional[H5UserDetailModel]:
         """
         根据ID获取用户详情，支持整数ID和字符串ID
         """
         user = None
-        
+        # 获取用户IP地址
+        client_ip = cls.get_client_ip(request)
+        print(f"获取用户详情，用户ID: {user_id}，客户端IP: {client_ip}")
         # 尝试将用户ID转换为整数
         try:
             user_id_int = int(user_id)
@@ -227,10 +230,13 @@ class H5UserService:
         """
         创建用户
         """
+        print(f"service层创建用户，用户数据: {user.dict()}")
+        
         # 检查用户名是否存在
         stmt = select(H5User).where(H5User.username == user.username)
         result = await db.execute(stmt)
         if result.scalars().first():
+            print(f"用户名已存在: {user.username}")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="用户名已存在"
@@ -240,11 +246,10 @@ class H5UserService:
         if not user.nickname:
             random_suffix = ''.join(random.choices(string.ascii_letters + string.digits, k=8))
             user.nickname = f"{user.username}_{random_suffix}"
+            print(f"生成随机昵称: {user.nickname}")
         
         # 获取用户IP地址
-        client_ip = ""
-        if request:
-            client_ip = request.headers.get("X-Forwarded-For") or request.client.host
+        client_ip = cls.get_client_ip(request)
         
         # 创建用户（不指定user_id，让数据库自动生成）
         new_user = H5User(
@@ -290,11 +295,19 @@ class H5UserService:
         cls,
         user_id: str,
         user: H5UserModel,
+        request: Request = None,
         db: AsyncSession = Depends(get_db)
     ) -> Optional[H5UserDetailModel]:
         """
         更新用户
         """
+        print(f"service层更新用户，用户ID: {user_id}, 数据: {user.dict() if user else None}")
+        
+        # 确保不会处理用户名
+        if hasattr(user, 'username'):
+            print(f"service层删除用户名属性: {user.username}")
+            delattr(user, 'username')
+        
         # 尝试将用户ID转换为整数
         try:
             user_id_int = int(user_id)
@@ -330,6 +343,10 @@ class H5UserService:
             db_user.bind_type = user.bind_type
         if user.pay_type:
             db_user.pay_type = user.pay_type
+        
+        # 获取用户IP地址
+        client_ip = cls.get_client_ip(request)
+        db_user.login_ip = client_ip  # 设置登录IP
         
         db_user.update_time = datetime.now()
         
@@ -890,9 +907,7 @@ class H5UserService:
             user.nickname = f"{user.username}_{random_suffix}"
         
         # 获取用户IP地址
-        client_ip = ""
-        if request:
-            client_ip = request.headers.get("X-Forwarded-For") or request.client.host
+        client_ip = cls.get_client_ip(request)
         
         # 创建用户，注意不要指定 user_id，让数据库自动生成
         new_user = H5User(
@@ -937,3 +952,24 @@ class H5UserService:
         user_detail.create_time = new_user.create_time
         
         return user_detail
+
+    @staticmethod
+    def get_client_ip(request: Request = None) -> str:
+        """
+        获取客户端IP地址
+        """
+        if not request:
+            print("警告: request对象为None，使用默认IP地址")
+            return "127.0.0.1"
+        
+        try:
+            x_forwarded_for = request.headers.get("X-Forwarded-For")
+            client_host = request.client.host if hasattr(request.client, 'host') else None
+            client_ip = x_forwarded_for or client_host or "127.0.0.1"
+            print(f"获取到的用户IP地址: {client_ip}")
+            print(f"X-Forwarded-For: {x_forwarded_for}")
+            print(f"Client Host: {client_host}")
+            return client_ip
+        except Exception as e:
+            print(f"获取客户端IP地址时发生错误: {str(e)}")
+            return "127.0.0.1"

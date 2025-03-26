@@ -59,8 +59,8 @@ class H5UserModel(H5UserBaseModel):
 
 class H5UserDetailModel(BaseModel):
     """H5用户详情模型"""
-    id: Optional[str] = None
-    user_id: Optional[str] = None
+    id: Optional[int] = None  # 用于存储数据库的整数ID
+    user_id: Optional[str] = None  # 用于存储生成的字符串ID
     username: Optional[str] = Field(None, description="登录名")
     nickname: Optional[str] = Field(None, description="用户昵称")
     password: Optional[str] = Field(None, description="密码")
@@ -86,6 +86,12 @@ class H5UserDetailModel(BaseModel):
     update_time: Optional[datetime] = Field(None, description="更新时间")
 
     model_config = ConfigDict(alias_generator=to_camel, from_attributes=True)
+
+    @validator('id', pre=True)
+    def validate_id(cls, v):
+        if v is not None:
+            return int(v)
+        return v
 
     @validator('user_id', pre=True)
     def validate_user_id(cls, v):

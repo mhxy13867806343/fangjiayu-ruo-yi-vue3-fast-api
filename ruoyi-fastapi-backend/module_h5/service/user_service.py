@@ -126,8 +126,11 @@ class H5UserService:
         for user in users:
             user_dto = H5UserDetailModel.model_validate(user)
             
+            # 设置id字段为数据库的user_id值
+            user_dto.id = user.user_id
+            
             # 生成字符串格式的用户ID
-            string_id = cls.generate_string_id()
+            string_id = cls.generate_string_id_from_int(user.user_id)
             user_dto.user_id = string_id
             
             # 计算注册天数
@@ -165,8 +168,11 @@ class H5UserService:
         # 转换为DTO
         user_dto = H5UserDetailModel.model_validate(user)
         
+        # 设置id字段为数据库的user_id值
+        user_dto.id = user.user_id
+        
         # 生成字符串格式的用户ID
-        string_id = cls.generate_string_id()
+        string_id = cls.generate_string_id_from_int(user.user_id)
         user_dto.user_id = string_id
         
         # 计算注册天数
@@ -313,6 +319,49 @@ class H5UserService:
         return True
     
     @classmethod
+    async def find_user_by_string_id(
+        cls,
+        string_id: str,
+        db: AsyncSession = Depends(get_db)
+    ) -> Optional[H5User]:
+        """
+        根据字符串ID查找用户
+        
+        由于我们在应用层使用字符串ID，但在数据库中使用整数ID，
+        这个方法会查询所有用户并在内存中匹配字符串ID。
+        
+        注意：这不是一个高效的方法，仅作为临时解决方案。
+        长期解决方案应该是在数据库中添加字符串ID字段。
+        """
+        # 查询所有用户
+        stmt = select(H5User)
+        result = await db.execute(stmt)
+        users = result.scalars().all()
+        
+        # 在内存中匹配字符串ID
+        for user in users:
+            # 生成该用户的字符串ID
+            user_string_id = cls.generate_string_id_from_int(user.user_id)
+            if user_string_id == string_id:
+                return user
+        
+        return None
+    
+    @classmethod
+    def generate_string_id_from_int(cls, user_id: int) -> str:
+        """
+        从整数ID生成字符串ID
+        
+        注意：这个方法应该与 generate_string_id 方法生成的ID格式一致
+        """
+        # 使用固定的种子值，确保每次为同一个整数ID生成相同的字符串ID
+        random.seed(user_id)
+        string_id = ''.join(random.choices(string.ascii_letters + string.digits, k=30))
+        # 重置随机数生成器
+        random.seed()
+        return string_id
+    
+    @classmethod
     async def change_user_status(
         cls,
         user_id: str,
@@ -322,15 +371,16 @@ class H5UserService:
         """
         修改用户状态
         """
-        # 确保user_id是整数类型
+        # 尝试将字符串ID转换为整数
         try:
             user_id_int = int(user_id)
+            # 如果成功转换为整数，则直接查询数据库
+            stmt = select(H5User).where(H5User.user_id == user_id_int)
+            result = await db.execute(stmt)
+            user = result.scalars().first()
         except (ValueError, TypeError):
-            return False
-            
-        stmt = select(H5User).where(H5User.user_id == user_id_int)
-        result = await db.execute(stmt)
-        user = result.scalars().first()
+            # 如果无法转换为整数，则尝试使用字符串ID查找用户
+            user = await cls.find_user_by_string_id(user_id, db)
         
         if not user:
             return False
@@ -776,9 +826,11 @@ class H5UserService:
         # 转换为DTO
         user_detail = H5UserDetailModel.model_validate(new_user)
         
+        # 设置id字段为数据库的user_id值
+        user_detail.id = new_user.user_id
+        
         # 生成字符串格式的用户ID
-        string_id = cls.generate_string_id()
-        # 在DTO中使用字符串ID，但不保存到数据库
+        string_id = cls.generate_string_id_from_int(new_user.user_id)
         user_detail.user_id = string_id
         
         # 确保register_time字段被赋值

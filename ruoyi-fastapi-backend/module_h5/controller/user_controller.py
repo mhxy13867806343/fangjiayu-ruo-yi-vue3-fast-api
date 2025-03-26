@@ -1,7 +1,6 @@
 from typing import List, Optional, Dict, Any
 import math
-
-from fastapi import APIRouter, Depends, HTTPException, status, Query, Path
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Path, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from config.get_db import get_db
@@ -43,12 +42,12 @@ async def get_user_list(
 
 @userController.get("/{user_id}", summary="获取用户详情")
 async def get_user_detail(
-    user_id: int = Path(..., description="用户ID"),
+    user_id: str = Path(..., description="用户ID"),
     current_user: CurrentUserModel = Depends(CheckUserInterfaceAuth("h5:user:query")),
     db: AsyncSession = Depends(get_db)
 ):
     """获取用户详情"""
-    user = await H5UserService.get_user_by_id(user_id, db)
+    user = await H5UserService.get_user_detail(user_id, db)
     if not user:
         return ResponseUtil.error("用户不存在")
     return ResponseUtil.success(data=user)
@@ -57,12 +56,13 @@ async def get_user_detail(
 @userController.post("", summary="创建用户")
 async def create_user(
     user: H5UserModel,
+    request: Request,
     current_user: CurrentUserModel = Depends(CheckUserInterfaceAuth("h5:user:add")),
     db: AsyncSession = Depends(get_db)
 ):
     """创建用户"""
     try:
-        new_user = await H5UserService.create_user(user, db)
+        new_user = await H5UserService.create_user(user, request, db)
         return ResponseUtil.success(data=new_user)
     except HTTPException as e:
         return ResponseUtil.error(e.detail)
@@ -70,7 +70,7 @@ async def create_user(
 
 @userController.put("/{user_id}", summary="更新用户")
 async def update_user(
-    user_id: int = Path(..., description="用户ID"),
+    user_id: str = Path(..., description="用户ID"),
     user: H5UserModel = None,
     current_user: CurrentUserModel = Depends(CheckUserInterfaceAuth("h5:user:edit")),
     db: AsyncSession = Depends(get_db)
@@ -84,7 +84,7 @@ async def update_user(
 
 @userController.delete("/{user_id}", summary="删除用户")
 async def delete_user(
-    user_id: int = Path(..., description="用户ID"),
+    user_id: str = Path(..., description="用户ID"),
     current_user: CurrentUserModel = Depends(CheckUserInterfaceAuth("h5:user:remove")),
     db: AsyncSession = Depends(get_db)
 ):
@@ -110,7 +110,7 @@ async def change_user_status(
 
 @userController.post("/checkin/{user_id}", summary="用户签到")
 async def user_checkin(
-    user_id: int = Path(..., description="用户ID"),
+    user_id: str = Path(..., description="用户ID"),
     current_user: CurrentUserModel = Depends(CheckUserInterfaceAuth("h5:user:checkin")),
     db: AsyncSession = Depends(get_db)
 ):
@@ -124,7 +124,7 @@ async def user_checkin(
 
 @userController.post("/mood/{user_id}", summary="发布心情")
 async def create_mood(
-    user_id: int = Path(..., description="用户ID"),
+    user_id: str = Path(..., description="用户ID"),
     content: str = Query(..., description="心情内容"),
     status: str = Query("0", description="状态（0公开 1私有）"),
     current_user: CurrentUserModel = Depends(CheckUserInterfaceAuth("h5:user:mood")),
@@ -140,7 +140,7 @@ async def create_mood(
 
 @userController.get("/mood/list", response_model=PageResponseModel, summary="获取心情列表")
 async def get_mood_list(
-    user_id: Optional[int] = Query(None, description="用户ID"),
+    user_id: Optional[str] = Query(None, description="用户ID"),
     status: Optional[str] = Query(None, description="状态（0公开 1私有）"),
     page_num: int = Query(1, description="页码"),
     page_size: int = Query(10, description="每页条数"),
@@ -161,7 +161,7 @@ async def get_mood_list(
 
 @userController.put("/mood/{user_id}", summary="更新用户心情")
 async def update_user_mood(
-    user_id: int = Path(..., description="用户ID"),
+    user_id: str = Path(..., description="用户ID"),
     mood: str = Query(..., description="心情内容"),
     current_user: CurrentUserModel = Depends(CheckUserInterfaceAuth("h5:user:mood:edit")),
     db: AsyncSession = Depends(get_db)
@@ -176,7 +176,7 @@ async def update_user_mood(
 
 @userController.post("/payment/{user_id}", summary="创建支付订单")
 async def create_payment(
-    user_id: int = Path(..., description="用户ID"),
+    user_id: str = Path(..., description="用户ID"),
     amount: int = Query(..., description="支付金额（分）"),
     pay_type: str = Query(..., description="支付类型"),
     current_user: CurrentUserModel = Depends(CheckUserInterfaceAuth("h5:user:payment")),

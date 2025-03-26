@@ -17,7 +17,7 @@ const formatTime = (time) => {
   if (!time) return '--';
   return dayjs(time).format('YYYY-MM-DD HH:mm:ss');
 };
-
+const isEdit=ref(false)
 // 遮罩层
 const loading = ref(false);
 // 选中数组
@@ -52,7 +52,7 @@ const queryParams = reactive({
 const form = reactive({
   userId: undefined,
   username: undefined,
-  phoneNumber: undefined,
+  phone: undefined,
   password: "123456",
   status: "0",
   remark: undefined,
@@ -64,7 +64,7 @@ const rules = ref({
   username: [
     { required: true, message: "登录名不能为空", trigger: "blur" }
   ],
-  phoneNumber: [
+  phone: [
     { required: true, message: "手机号码不能为空", trigger: "blur" },
     { pattern: /^1[3-9]\d{9}$/, message: "请输入正确的手机号码", trigger: "blur" }
   ]
@@ -93,12 +93,13 @@ const cancel = () => {
 const reset = () => {
   form.userId = undefined;
   form.username = undefined;
-  form.phoneNumber = undefined;
+  form.phone = undefined;
   form.password = "123456";
   form.status = "0";
   form.remark = undefined;
   form.email = undefined;
   proxy.resetForm("userForm");
+  console.log('重置表单',form);
 };
 
 // 搜索按钮操作
@@ -138,16 +139,18 @@ const handleAdd = () => {
   reset();
   open.value = true;
   title.value = "添加用户";
+  isEdit.value=false
 };
 
 // 修改按钮操作
 const handleUpdate = async (row) => {
   reset();
-  const userId = row?.userId || ids.value[0];
+  const userId = row?.userId;
   const response = await getUser(userId);
   Object.assign(form, response.data);
   open.value = true;
   title.value = "修改用户";
+  isEdit.value=true
 };
 
 // 提交按钮
@@ -159,11 +162,7 @@ const submitForm = () => {
         const userData = {
           ...form
         };
-        
-        // 将 phoneNumber 转换为 phone
-        userData.phone = userData.phoneNumber;
-        delete userData.phoneNumber;
-        
+
         // 如果没有昵称，使用用户名作为昵称
         userData.nickname = userData.username;
         
@@ -173,6 +172,8 @@ const submitForm = () => {
         }
         
         if (form.userId) {
+          // 修改用户时，不传递用户名
+          delete userData.username;
           await updateUser(userData);
           ElMessage.success("修改成功");
         } else {
@@ -181,6 +182,8 @@ const submitForm = () => {
         }
         open.value = false;
         getList();
+        // 操作完成后重置表单
+        reset();
       } catch (error) {
         console.error("提交表单失败:", error);
         ElMessage.error(error.message || "操作失败");
@@ -215,17 +218,8 @@ const formatRegisterDays = (days) => {
   return days + '天';
 };
 
-// 判断是否为管理员组
-const isAdmin = computed(() => {
-});
-
 // 查看完整手机号
 const viewFullPhone = async (row) => {
-  if (!isAdmin.value) {
-    ElMessage.warning("只有管理员组成员才能查看完整手机号");
-    return;
-  }
-  
   try {
     const response = await getUser(row.userId);
     ElMessageBox.alert(response.data.phone, '完整手机号', {
@@ -236,11 +230,6 @@ const viewFullPhone = async (row) => {
   }
 };
 
-// 获取等级名称
-const getLevelName = (level) => {
-  const option = levelNameOptions.value?.find(opt => opt.dictValue === level.toString());
-  return option ? option.dictLabel : `LV${level}`;
-};
 
 onMounted(() => {
   getList();
@@ -387,8 +376,13 @@ onMounted(() => {
       </el-table-column>
       <el-table-column label="操作" align="center" width="200" class-name="small-padding fixed-width">
         <template #default="scope">
+           <el-button link type="primary"
+                      v-if="scope.row.status==='0'"
+                      icon="edit" @click="handleUpdate(scope.row)" v-hasPermi="['h5:user:edit']">
+            编辑
+          </el-button>
           <el-button link type="primary" icon="Delete" @click="handleStatusChange(scope.row)" v-hasPermi="['h5:user:remove']">
-            {{  scope.row.status === '0' ? '禁用' : '启用'}}
+            {{  scope.row.status === '0' ? '正常' : '禁用'}}
           </el-button>
         </template>
       </el-table-column>
@@ -406,10 +400,10 @@ onMounted(() => {
     <el-dialog :title="title" v-model="open" width="500px" append-to-body>
       <el-form ref="userForm" :model="form" :rules="rules" label-width="80px">
         <el-form-item label="登录名" prop="username">
-          <el-input v-model="form.username" placeholder="请输入登录名" />
+          <el-input v-model="form.username" placeholder="请输入登录名" :disabled="isEdit" />
         </el-form-item>
-        <el-form-item label="手机号码" prop="phoneNumber">
-          <el-input v-model="form.phoneNumber" placeholder="请输入手机号码" maxlength="11" />
+        <el-form-item label="手机号码" prop="phone">
+          <el-input v-model="form.phone" placeholder="请输入手机号码" maxlength="11" />
         </el-form-item>
         <el-form-item label="邮箱" prop="email">
           <el-input v-model="form.email" placeholder="请输入邮箱" />

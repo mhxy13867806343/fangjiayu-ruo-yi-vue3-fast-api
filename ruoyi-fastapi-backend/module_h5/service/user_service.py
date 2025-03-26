@@ -4,7 +4,7 @@ import time
 from datetime import datetime, timedelta
 from typing import List, Optional, Tuple, Dict, Any
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Request
 from sqlalchemy import select, func, and_, or_, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -145,6 +145,8 @@ class H5UserService:
             # 手机号脱敏
             if user.phone and len(user.phone) == 11:
                 user_dto.phone = user.phone[:3] + "****" + user.phone[-4:]
+            # 在应用层处理身份证号
+            user_dto.id_card = ""  # 默认为空字符串
             user_list.append(user_dto)
         
         return user_list, total
@@ -188,13 +190,38 @@ class H5UserService:
         # 手机号脱敏
         if user.phone and len(user.phone) == 11:
             user_dto.phone = user.phone[:3] + "****" + user.phone[-4:]
+        # 在应用层处理身份证号
+        user_dto.id_card = ""  # 默认为空字符串
         
         return user_dto
+    
+    @classmethod
+    async def get_user_detail(
+        cls, 
+        user_id: str, 
+        db: AsyncSession = Depends(get_db)
+    ) -> Optional[H5UserDetailModel]:
+        """
+        根据ID获取用户详情，支持整数ID和字符串ID
+        """
+        user = None
+        
+        # 尝试将用户ID转换为整数
+        try:
+            user_id_int = int(user_id)
+            # 如果成功转换为整数，则使用整数ID查询
+            user = await cls.get_user_by_id(user_id_int, db)
+        except ValueError:
+            # 如果无法转换为整数，则使用字符串ID查询
+            user = await cls.find_user_by_string_id(user_id, db)
+            
+        return user
     
     @classmethod
     async def create_user(
         cls,
         user: H5UserModel,
+        request: Request = None,
         db: AsyncSession = Depends(get_db)
     ) -> H5UserDetailModel:
         """
@@ -214,6 +241,11 @@ class H5UserService:
             random_suffix = ''.join(random.choices(string.ascii_letters + string.digits, k=8))
             user.nickname = f"{user.username}_{random_suffix}"
         
+        # 获取用户IP地址
+        client_ip = ""
+        if request:
+            client_ip = request.headers.get("X-Forwarded-For") or request.client.host
+        
         # 创建用户（不指定user_id，让数据库自动生成）
         new_user = H5User(
             username=user.username,
@@ -225,6 +257,8 @@ class H5UserService:
             status=user.status,
             bind_type=user.bind_type,
             pay_type=user.pay_type,
+            login_ip=client_ip,  # 设置登录IP
+            login_date=datetime.now(),  # 设置登录时间
             register_time=datetime.now(),
             exp_points=0,
             level=1,
@@ -254,14 +288,26 @@ class H5UserService:
     @classmethod
     async def update_user(
         cls,
-        user_id: int,
+        user_id: str,
         user: H5UserModel,
         db: AsyncSession = Depends(get_db)
     ) -> Optional[H5UserDetailModel]:
         """
         更新用户
         """
-        stmt = select(H5User).where(H5User.user_id == user_id)
+        # 尝试将用户ID转换为整数
+        try:
+            user_id_int = int(user_id)
+            # 如果成功转换为整数，则使用整数ID查询
+            stmt = select(H5User).where(H5User.user_id == user_id_int)
+        except ValueError:
+            # 如果无法转换为整数，则使用字符串ID查询
+            db_user = await cls.find_user_by_string_id(user_id, db)
+            if db_user:
+                stmt = select(H5User).where(H5User.user_id == db_user.id)
+            else:
+                return None
+        
         result = await db.execute(stmt)
         db_user = result.scalars().first()
         
@@ -269,6 +315,7 @@ class H5UserService:
             return None
         
         # 更新用户信息
+        # 注意：不更新用户名，因为前端在修改用户时不会传递用户名
         if user.nickname:
             db_user.nickname = user.nickname
         if user.email:
@@ -283,35 +330,63 @@ class H5UserService:
             db_user.bind_type = user.bind_type
         if user.pay_type:
             db_user.pay_type = user.pay_type
-        if user.mood is not None:
-            db_user.mood = user.mood
-        if user.remark is not None:
-            db_user.remark = user.remark
         
         db_user.update_time = datetime.now()
         
         await db.commit()
         await db.refresh(db_user)
         
-        return H5UserDetailModel.model_validate(db_user)
+        # 转换为DTO
+        user_dto = H5UserDetailModel.model_validate(db_user)
+        
+        # 设置id字段为数据库的user_id值
+        user_dto.id = db_user.user_id
+        
+        # 生成字符串格式的用户ID
+        string_id = cls.generate_string_id_from_int(db_user.user_id)
+        user_dto.user_id = string_id
+        
+        # 计算注册天数
+        if db_user.register_time:
+            delta = datetime.now() - db_user.register_time
+            user_dto.register_days = delta.days
+            # 确保register_time字段被赋值
+            user_dto.register_time = db_user.register_time
+        # 确保create_time字段被赋值
+        if db_user.create_time:
+            user_dto.create_time = db_user.create_time
+        
+        return user_dto
     
     @classmethod
     async def delete_user(
         cls,
-        user_id: int,
+        user_id: str,
         db: AsyncSession = Depends(get_db)
     ) -> bool:
         """
         删除用户
         """
-        stmt = select(H5User).where(H5User.user_id == user_id)
+        # 尝试将用户ID转换为整数
+        try:
+            user_id_int = int(user_id)
+            # 如果成功转换为整数，则使用整数ID查询
+            stmt = select(H5User).where(H5User.user_id == user_id_int)
+        except ValueError:
+            # 如果无法转换为整数，则使用字符串ID查询
+            db_user = await cls.find_user_by_string_id(user_id, db)
+            if db_user:
+                stmt = select(H5User).where(H5User.user_id == db_user.id)
+            else:
+                return False
+        
         result = await db.execute(stmt)
         user = result.scalars().first()
         
         if not user:
             return False
         
-        # 逻辑删除
+        # 软删除
         user.del_flag = "2"
         user.update_time = datetime.now()
         
@@ -394,14 +469,29 @@ class H5UserService:
     @classmethod
     async def user_checkin(
         cls,
-        user_id: int,
+        user_id: str,
         db: AsyncSession = Depends(get_db)
     ) -> Dict[str, Any]:
         """
         用户签到
         """
-        # 获取用户信息
-        stmt = select(H5User).where(H5User.user_id == user_id)
+        # 尝试将用户ID转换为整数
+        try:
+            user_id_int = int(user_id)
+            # 如果成功转换为整数，则使用整数ID查询
+            stmt = select(H5User).where(H5User.user_id == user_id_int)
+        except ValueError:
+            # 如果无法转换为整数，则使用字符串ID查询
+            db_user = await cls.find_user_by_string_id(user_id, db)
+            if db_user:
+                user_id_int = db_user.id
+                stmt = select(H5User).where(H5User.user_id == user_id_int)
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="用户不存在"
+                )
+        
         result = await db.execute(stmt)
         user = result.scalars().first()
         
@@ -413,7 +503,7 @@ class H5UserService:
         
         # 检查今天是否已签到
         today = datetime.now().date()
-        redis_key = f"{cls.REDIS_CHECKIN_KEY}{user_id}:{today}"
+        redis_key = f"{cls.REDIS_CHECKIN_KEY}{user_id_int}:{today}"
         
         # 检查Redis中是否已签到
         if await RedisUtil.exists(redis_key):
@@ -452,7 +542,7 @@ class H5UserService:
         
         # 记录签到信息到数据库
         checkin_record = H5UserCheckin(
-            user_id=user_id,
+            user_id=user_id_int,
             checkin_date=datetime.now(),
             exp_gained=exp_gained,
             create_time=datetime.now()
@@ -777,6 +867,7 @@ class H5UserService:
     async def register(
         cls,
         user: H5UserRegisterModel,
+        request: Request = None,
         db: AsyncSession = Depends(get_db)
     ) -> H5UserDetailModel:
         """
@@ -798,6 +889,11 @@ class H5UserService:
             random_suffix = ''.join(random.choices(string.ascii_letters + string.digits, k=8))
             user.nickname = f"{user.username}_{random_suffix}"
         
+        # 获取用户IP地址
+        client_ip = ""
+        if request:
+            client_ip = request.headers.get("X-Forwarded-For") or request.client.host
+        
         # 创建用户，注意不要指定 user_id，让数据库自动生成
         new_user = H5User(
             username=user.username,
@@ -809,6 +905,8 @@ class H5UserService:
             status=user.status,
             bind_type=user.bind_type,
             pay_type=user.pay_type,
+            login_ip=client_ip,  # 设置登录IP
+            login_date=datetime.now(),  # 设置登录时间
             register_time=datetime.now(),
             exp_points=0,
             level=1,

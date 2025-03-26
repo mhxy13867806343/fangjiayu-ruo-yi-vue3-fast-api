@@ -47,16 +47,16 @@ const queryParams = reactive({
   beginTime: undefined,
   endTime: undefined,
 });
-
+const userForm=ref(null)
 // 表单参数
 const form = reactive({
-  userId: undefined,
-  username: undefined,
-  phone: undefined,
+  userId:  "",
+  username:  "",
+  phone:  "",
   password: "123456",
   status: "0",
-  remark: undefined,
-  email: undefined
+  remark:  "",
+  email:  ""
 });
 
 // 表单校验
@@ -91,13 +91,13 @@ const cancel = () => {
 
 // 表单重置
 const reset = () => {
-  form.userId = undefined;
-  form.username = undefined;
-  form.phone = undefined;
+  form.userId = "";
+  form.username = "";
+  form.phone =  "";
   form.password = "123456";
   form.status = "0";
-  form.remark = undefined;
-  form.email = undefined;
+  form.remark = "";
+  form.email =  "";
   proxy.resetForm("userForm");
   console.log('重置表单',form);
 };
@@ -146,11 +146,30 @@ const handleAdd = () => {
 const handleUpdate = async (row) => {
   reset();
   const userId = row?.userId;
+  console.log("修改用户，原始用户ID:", userId);
   const response = await getUser(userId);
+  console.log("获取到的用户详情:", response.data);
+  
+  // 确保用户ID被正确保留
+  form.userId = userId;
+  
+  // 将其他字段复制到表单中
   Object.assign(form, response.data);
+  
+  // 再次确认用户ID存在
+  if (!form.userId) {
+    form.userId = userId;
+  }
+  
+  // 确保保留原有用户名
+  if (!form.username && response.data.username) {
+    form.username = response.data.username;
+  }
+  
+  console.log("表单数据:", form);
   open.value = true;
   title.value = "修改用户";
-  isEdit.value=true
+  isEdit.value = true;
 };
 
 // 提交按钮
@@ -158,27 +177,34 @@ const submitForm = () => {
   proxy.$refs["userForm"].validate(async valid => {
     if (valid) {
       try {
+        console.log("提交表单，原始表单数据:", form);
         // 转换数据格式，确保与后端模型匹配
         const userData = {
           ...form
         };
+        console.log("转换后的用户数据:", userData);
 
         // 如果没有昵称，使用用户名作为昵称
-        userData.nickname = userData.username;
+        if (!userData.nickname && userData.username) {
+          userData.nickname = userData.username;
+        }
         
         // 处理email字段，确保不发送空字符串
         if (!userData.email || userData.email === '') {
           delete userData.email; // 完全删除email字段，而不是设置为null
         }
+        console.log("用户ID是否存在:", !!form.userId, "用户ID:", form.userId);
         
-        if (form.userId) {
-          // 修改用户时，不传递用户名
-          delete userData.username;
+        // 检查是否是编辑模式
+        if (isEdit.value && form.userId) {
+          // 修改用户时，不删除用户名，但确保保留原有用户名
+          // 如果后端需要用户名字段，我们就不删除它
+          // delete userData.username;
           await updateUser(userData);
-          ElMessage.success("修改成功");
+          proxy.$modal.msgSuccess("修改成功");
         } else {
           await addUser(userData);
-          ElMessage.success("新增成功");
+          proxy.$modal.msgSuccess("新增成功");
         }
         open.value = false;
         getList();
@@ -186,7 +212,7 @@ const submitForm = () => {
         reset();
       } catch (error) {
         console.error("提交表单失败:", error);
-        ElMessage.error(error.message || "操作失败");
+        proxy.$modal.msgError(error.message || "操作失败");
       }
     }
   });
@@ -330,17 +356,17 @@ onMounted(() => {
     <el-table v-loading="loading" :data="userList" @selection-change="handleSelectionChange">
       <el-table-column type="selection" width="50" align="center" />
       <el-table-column label="序号" type="index" width="50" align="center" />
-      <el-table-column label="登录名" align="center" prop="nickname" />
-      <el-table-column label="用户昵称" align="center" prop="nickname" />
-      <el-table-column label="邮箱" align="center" prop="email" />
-      <el-table-column label="手机号码" align="center" width="120">
+      <el-table-column label="登录名" align="center" prop="nickname"  width="100"/>
+      <el-table-column label="用户昵称" align="center" prop="nickname"  width="100"/>
+      <el-table-column label="邮箱" align="center" prop="email"  width="100"/>
+      <el-table-column label="手机号码" align="center" width="100">
         <template #default="scope">
           <el-button link type="primary" @click="viewFullPhone(scope.row)">
             {{ formatPhone(scope.row.phone) }}
           </el-button>
         </template>
       </el-table-column>
-      <el-table-column label="注册时间" align="center" width="160">
+      <el-table-column label="注册时间" align="center" width="100">
         <template #default="scope">
           {{ formatTime(scope.row.registerTime) }}
         </template>
@@ -353,6 +379,7 @@ onMounted(() => {
       <el-table-column label="等级" align="center" width="100">
         <template #default="scope">
           LV{{ scope.row.level }}
+          {{  scope.row.levelName}}
         </template>
       </el-table-column>
       <el-table-column label="签到天数" align="center" width="100">

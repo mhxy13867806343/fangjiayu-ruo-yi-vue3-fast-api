@@ -304,7 +304,7 @@ class H5UserService:
             # 如果无法转换为整数，则使用字符串ID查询
             db_user = await cls.find_user_by_string_id(user_id, db)
             if db_user:
-                stmt = select(H5User).where(H5User.user_id == db_user.id)
+                stmt = select(H5User).where(H5User.user_id == db_user.user_id)
             else:
                 return None
         
@@ -376,7 +376,7 @@ class H5UserService:
             # 如果无法转换为整数，则使用字符串ID查询
             db_user = await cls.find_user_by_string_id(user_id, db)
             if db_user:
-                stmt = select(H5User).where(H5User.user_id == db_user.id)
+                stmt = select(H5User).where(H5User.user_id == db_user.user_id)
             else:
                 return False
         
@@ -484,7 +484,7 @@ class H5UserService:
             # 如果无法转换为整数，则使用字符串ID查询
             db_user = await cls.find_user_by_string_id(user_id, db)
             if db_user:
-                user_id_int = db_user.id
+                user_id_int = db_user.user_id
                 stmt = select(H5User).where(H5User.user_id == user_id_int)
             else:
                 raise HTTPException(

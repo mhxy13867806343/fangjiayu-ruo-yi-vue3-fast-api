@@ -20,7 +20,7 @@ export function getUser(userId) {
 // 新增H5用户
 export function addUser(data) {
   return request({
-    url: '/h5/user',
+    url: '/h5/user/add',
     method: 'post',
     data: data
   })
@@ -29,7 +29,7 @@ export function addUser(data) {
 // 修改H5用户
 export function updateUser(data) {
   return request({
-    url: `/h5/user/${data.userId}`,
+    url: `/h5/user/edit/${data.userId}`,
     method: 'put',
     data: data
   })

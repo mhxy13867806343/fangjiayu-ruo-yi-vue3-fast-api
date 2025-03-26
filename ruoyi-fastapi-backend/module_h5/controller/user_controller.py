@@ -53,7 +53,7 @@ async def get_user_detail(
     return ResponseUtil.success(data=user)
 
 
-@userController.post("", summary="创建用户")
+@userController.post("/add", summary="创建用户")
 async def create_user(
     user: H5UserModel,
     request: Request,
@@ -68,7 +68,7 @@ async def create_user(
         return ResponseUtil.error(e.detail)
 
 
-@userController.put("/{user_id}", summary="更新用户")
+@userController.put("/edit/{user_id}", summary="更新用户")
 async def update_user(
     user_id: str = Path(..., description="用户ID"),
     user: H5UserModel = None,

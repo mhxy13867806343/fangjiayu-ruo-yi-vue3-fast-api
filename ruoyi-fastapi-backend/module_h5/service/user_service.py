@@ -206,9 +206,6 @@ class H5UserService:
         根据ID获取用户详情，支持整数ID和字符串ID
         """
         user = None
-        # 获取用户IP地址
-        client_ip = cls.get_client_ip(request)
-        print(f"获取用户详情，用户ID: {user_id}，客户端IP: {client_ip}")
         # 尝试将用户ID转换为整数
         try:
             user_id_int = int(user_id)

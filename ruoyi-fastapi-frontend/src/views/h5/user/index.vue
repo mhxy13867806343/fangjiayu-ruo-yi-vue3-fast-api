@@ -353,12 +353,12 @@ onMounted(() => {
       </el-table-column>
       <el-table-column label="注册时间" align="center" width="160">
         <template #default="scope">
-          {{ formatTime(scope.row.register_time) }}
+          {{ formatTime(scope.row.registerTime) }}
         </template>
       </el-table-column>
       <el-table-column label="创建时间" align="center" width="160">
         <template #default="scope">
-          {{ formatTime(scope.row.create_time) }}
+          {{ formatTime(scope.row.createTime) }}
         </template>
       </el-table-column>
       <el-table-column label="等级" align="center" width="100">
@@ -368,14 +368,14 @@ onMounted(() => {
       </el-table-column>
       <el-table-column label="签到天数" align="center" width="100">
         <template #default="scope">
-          {{ scope.row.expPoints }} 天
-          <el-tag v-if="scope.row.expPoints > 0" size="small" type="success">
-            连续{{ scope.row.expPoints }}天
+          {{ scope.row.checkinDays }} 天
+          <el-tag v-if="scope.row.continuousCheckinDays > 0" size="small" type="success">
+            连续{{ scope.row.continuousCheckinDays }}天
           </el-tag>
         </template>
       </el-table-column>
       <el-table-column label="心情" align="center" prop="mood" :show-overflow-tooltip="true" />
-      <el-table-column label="当前IP" align="center" prop="login_ip" />
+      <el-table-column label="当前IP" align="center" prop="loginIp" />
       <el-table-column label="当前状态" align="center" prop="status" >
         <template #default="scope">
           {{  scope.row.status==="0"?'正常':'禁用'}}
@@ -383,7 +383,7 @@ onMounted(() => {
       </el-table-column>
       <el-table-column label="注册天数" align="center" width="100">
         <template #default="scope">
-          {{ formatRegisterDays(scope.row.register_days) }}
+          {{ formatRegisterDays(scope.row.registerDays) }}
         </template>
       </el-table-column>
       <el-table-column label="操作" align="center" width="200" class-name="small-padding fixed-width">

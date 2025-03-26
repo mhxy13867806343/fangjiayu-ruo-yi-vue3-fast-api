@@ -57,16 +57,41 @@ class H5UserModel(H5UserBaseModel):
         return v
 
 
-class H5UserDetailModel(H5UserModel):
+class H5UserDetailModel(BaseModel):
     """H5用户详情模型"""
+    id: Optional[str] = None
+    user_id: Optional[str] = None
+    username: Optional[str] = Field(None, description="登录名")
+    nickname: Optional[str] = Field(None, description="用户昵称")
+    password: Optional[str] = Field(None, description="密码")
+    email: Optional[str] = Field(None, description="用户邮箱")
+    phone: Optional[str] = Field(None, description="手机号码")
+    avatar: Optional[str] = Field(None, description="头像地址")
+    status: Optional[str] = Field(None, description="帐号状态（0正常 1停用）")
+    bind_type: Optional[str] = Field(None, description="绑定类型（如微信、github等）")
+    pay_type: Optional[str] = Field(None, description="支付类型")
+    exp_points: Optional[int] = Field(0, description="经验值")
+    level: Optional[int] = Field(1, description="用户等级")
+    level_name: Optional[str] = Field("小鸡出壳", description="等级名称")
+    checkin_days: Optional[int] = Field(0, description="签到天数")
+    continuous_checkin_days: Optional[int] = Field(0, description="连续签到天数")
+    last_checkin_date: Optional[datetime] = Field(None, description="最后签到日期")
+    mood: Optional[str] = Field(None, description="心情")
+    remark: Optional[str] = Field(None, description="备注")
     register_time: Optional[datetime] = Field(None, description="注册时间")
     login_ip: Optional[str] = Field(None, description="最后登录IP")
     login_date: Optional[datetime] = Field(None, description="最后登录时间")
     register_days: Optional[int] = Field(0, description="注册天数")
     create_time: Optional[datetime] = Field(None, description="创建时间")
     update_time: Optional[datetime] = Field(None, description="更新时间")
-    
-    model_config = ConfigDict(from_attributes=True)
+
+    model_config = ConfigDict(alias_generator=to_camel, from_attributes=True)
+
+    @validator('user_id', pre=True)
+    def validate_user_id(cls, v):
+        if v is not None:
+            return str(v)
+        return v
 
 
 class H5UserRegisterModel(H5UserBaseModel):
@@ -149,5 +174,5 @@ class ChangeH5UserStatusModel(BaseModel):
     """修改H5用户状态模型"""
     user_id: str = Field(..., description="用户ID")
     status: str = Field(..., description="账号状态（0正常 1停用）")
-    
+
     model_config = ConfigDict(from_attributes=True)

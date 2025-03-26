@@ -142,6 +142,12 @@ class H5UserService:
             # 确保create_time字段被赋值
             if user.create_time:
                 user_dto.create_time = user.create_time
+            # 确保login_ip字段被赋值
+            if hasattr(user, 'login_ip'):
+                user_dto.login_ip = user.login_ip
+            # 确保update_time字段被赋值
+            if hasattr(user, 'update_time'):
+                user_dto.update_time = user.update_time
             # 手机号脱敏
             if user.phone and len(user.phone) == 11:
                 user_dto.phone = user.phone[:3] + "****" + user.phone[-4:]
@@ -343,16 +349,16 @@ class H5UserService:
         
         # 获取用户IP地址
         client_ip = cls.get_client_ip(request)
+
         db_user.login_ip = client_ip  # 设置登录IP
         
         db_user.update_time = datetime.now()
-        
         await db.commit()
         await db.refresh(db_user)
         
         # 转换为DTO
         user_dto = H5UserDetailModel.model_validate(db_user)
-        
+
         # 设置id字段为数据库的user_id值
         user_dto.id = db_user.user_id
         
@@ -905,6 +911,7 @@ class H5UserService:
         
         # 获取用户IP地址
         client_ip = cls.get_client_ip(request)
+
         
         # 创建用户，注意不要指定 user_id，让数据库自动生成
         new_user = H5User(

@@ -390,7 +390,11 @@ onMounted(() => {
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="当前IP" align="center" prop="loginIp" />
+      <el-table-column label="当前IP" align="center" prop="loginIp">
+        <template #default="scope">
+          {{ scope.row.loginIp || '未知' }}
+        </template>
+      </el-table-column>
       <el-table-column label="当前状态" align="center" prop="status" >
         <template #default="scope">
           {{  scope.row.status==="0"?'正常':'禁用'}}

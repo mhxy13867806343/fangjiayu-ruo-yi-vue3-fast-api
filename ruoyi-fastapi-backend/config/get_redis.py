@@ -75,3 +75,51 @@ class RedisUtil:
         """
         async with AsyncSessionLocal() as session:
             await ConfigService.init_cache_sys_config_services(session, redis)
+            
+    @classmethod
+    async def exists(cls, key):
+        """
+        检查键是否存在
+
+        :param key: 键名
+        :return: 布尔值，表示键是否存在
+        """
+        from server import app
+        return await app.state.redis.exists(key)
+    
+    @classmethod
+    async def set(cls, key, value, expire=None):
+        """
+        设置键值对
+
+        :param key: 键名
+        :param value: 值
+        :param expire: 过期时间（秒）
+        :return: 操作结果
+        """
+        from server import app
+        if expire:
+            return await app.state.redis.set(key, value, ex=expire)
+        return await app.state.redis.set(key, value)
+    
+    @classmethod
+    async def get(cls, key):
+        """
+        获取键值
+
+        :param key: 键名
+        :return: 值
+        """
+        from server import app
+        return await app.state.redis.get(key)
+    
+    @classmethod
+    async def delete(cls, key):
+        """
+        删除键
+
+        :param key: 键名
+        :return: 操作结果
+        """
+        from server import app
+        return await app.state.redis.delete(key)

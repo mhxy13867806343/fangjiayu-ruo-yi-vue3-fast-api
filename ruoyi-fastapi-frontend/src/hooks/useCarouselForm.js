@@ -1,7 +1,5 @@
 import { ref, reactive } from 'vue';
-import { ElMessage, ElMessageBox } from 'element-plus';
 import { useDict } from '@/utils/dict';
-import { toRefs } from 'vue';
 
 export default function useCarouselForm() {
   // 对话框标题

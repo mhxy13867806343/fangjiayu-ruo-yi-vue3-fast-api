@@ -24,6 +24,7 @@ from module_admin.controller.server_controller import serverController
 from module_admin.controller.user_controller import userController
 from module_generator.controller.gen_controller import genController
 from module_h5.controller.carousel_controller import carouselController
+from module_h5.controller.user_controller import userController as h5UserController
 from sub_applications.handle import handle_sub_applications
 from utils.common_util import worship
 from utils.log_util import logger
@@ -81,6 +82,7 @@ controller_list = [
     {'router': commonController, 'tags': ['通用模块']},
     {'router': genController, 'tags': ['代码生成']},
     {'router': carouselController, 'tags': ['H5-轮播图管理']},
+    {'router': h5UserController, 'tags': ['H5-用户管理']},
 ]
 
 for controller in controller_list:

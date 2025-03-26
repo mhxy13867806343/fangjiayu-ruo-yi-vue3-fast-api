@@ -94,14 +94,19 @@ class H5UserDetailModel(BaseModel):
         return v
 
 
-class H5UserRegisterModel(H5UserBaseModel):
+class H5UserRegisterModel(BaseModel):
     """H5用户注册模型"""
     username: str = Field(..., description="登录名")
+    nickname: Optional[str] = Field(None, description="用户昵称")
     password: str = Field(..., description="密码")
-    email: Optional[EmailStr] = Field(None, description="用户邮箱")
+    email: Optional[str] = Field(None, description="用户邮箱")
     phone: Optional[str] = Field(None, description="手机号码")
-    code: Optional[str] = Field(None, description="验证码")
-    uuid: Optional[str] = Field(None, description="唯一标识")
+    avatar: Optional[str] = Field(None, description="头像地址")
+    status: Optional[str] = Field("0", description="帐号状态（0正常 1停用）")
+    bind_type: Optional[str] = Field(None, description="绑定类型（如微信、github等）")
+    pay_type: Optional[str] = Field(None, description="支付类型")
+    
+    model_config = ConfigDict(alias_generator=to_camel, from_attributes=True)
 
 
 class H5UserLoginModel(H5UserBaseModel):

@@ -12,7 +12,7 @@ from sqlalchemy.orm import selectinload
 from config.get_db import get_db
 from config.get_redis import RedisUtil
 from module_h5.entity.do.user_do import H5User, H5UserCheckin, H5UserMood, H5UserMoodComment, H5UserThirdParty, H5UserPayment
-from module_h5.entity.vo.user_vo import H5UserModel, H5UserPageQueryModel, H5UserDetailModel
+from module_h5.entity.vo.user_vo import H5UserModel, H5UserPageQueryModel, H5UserDetailModel, H5UserRegisterModel
 from utils.page_util import PageResponseModel, PageUtil
 
 class H5UserService:
@@ -34,6 +34,50 @@ class H5UserService:
     REDIS_VERIFY_CODE_KEY = "h5:user:verify_code:"
     REDIS_EMAIL_CODE_KEY = "h5:user:email_code:"
     REDIS_PAYMENT_KEY = "h5:user:payment:"
+    
+    @staticmethod
+    def generate_string_id() -> str:
+        """
+        生成字母加数字组成的30个字符的用户ID
+        """
+        letters = string.ascii_letters  # 包含大小写字母
+        digits = string.digits  # 包含数字
+        
+        # 确保至少包含一个字母和一个数字
+        first_char = random.choice(letters)
+        second_char = random.choice(digits)
+        
+        # 剩余的28个字符从字母和数字中随机选择
+        remaining_chars = ''.join(random.choices(letters + digits, k=28))
+        
+        # 组合并随机打乱顺序
+        chars = first_char + second_char + remaining_chars
+        chars_list = list(chars)
+        random.shuffle(chars_list)
+        
+        return ''.join(chars_list)
+    
+    @staticmethod
+    def generate_user_id() -> str:
+        """
+        生成字母加数字组成的30个字符的用户ID
+        """
+        letters = string.ascii_letters  # 包含大小写字母
+        digits = string.digits  # 包含数字
+        
+        # 确保至少包含一个字母和一个数字
+        first_char = random.choice(letters)
+        second_char = random.choice(digits)
+        
+        # 剩余的28个字符从字母和数字中随机选择
+        remaining_chars = ''.join(random.choices(letters + digits, k=28))
+        
+        # 组合并随机打乱顺序
+        chars = first_char + second_char + remaining_chars
+        chars_list = list(chars)
+        random.shuffle(chars_list)
+        
+        return ''.join(chars_list)
     
     @classmethod
     async def get_user_list(
@@ -81,8 +125,11 @@ class H5UserService:
         user_list = []
         for user in users:
             user_dto = H5UserDetailModel.model_validate(user)
-            # 确保user_id为字符串
-            user_dto.user_id = str(user.user_id)
+            
+            # 生成字符串格式的用户ID
+            string_id = cls.generate_string_id()
+            user_dto.user_id = string_id
+            
             # 计算注册天数
             if user.register_time:
                 delta = datetime.now() - user.register_time
@@ -98,7 +145,7 @@ class H5UserService:
             user_list.append(user_dto)
         
         return user_list, total
-
+    
     @classmethod
     async def get_user_by_id(
         cls, 
@@ -115,19 +162,23 @@ class H5UserService:
         if not user:
             return None
         
+        # 转换为DTO
         user_dto = H5UserDetailModel.model_validate(user)
-        # 确保user_id为字符串
-        user_dto.user_id = str(user.user_id)
+        
+        # 生成字符串格式的用户ID
+        string_id = cls.generate_string_id()
+        user_dto.user_id = string_id
+        
         # 计算注册天数
         if user.register_time:
             delta = datetime.now() - user.register_time
             user_dto.register_days = delta.days
-        # 确保register_time字段被赋值
-        if user.register_time:
+            # 确保register_time字段被赋值
             user_dto.register_time = user.register_time
         # 确保create_time字段被赋值
         if user.create_time:
             user_dto.create_time = user.create_time
+        
         # 手机号脱敏
         if user.phone and len(user.phone) == 11:
             user_dto.phone = user.phone[:3] + "****" + user.phone[-4:]
@@ -136,8 +187,8 @@ class H5UserService:
     
     @classmethod
     async def create_user(
-        cls, 
-        user: H5UserModel, 
+        cls,
+        user: H5UserModel,
         db: AsyncSession = Depends(get_db)
     ) -> H5UserDetailModel:
         """
@@ -157,7 +208,7 @@ class H5UserService:
             random_suffix = ''.join(random.choices(string.ascii_letters + string.digits, k=8))
             user.nickname = f"{user.username}_{random_suffix}"
         
-        # 创建用户
+        # 创建用户（不指定user_id，让数据库自动生成）
         new_user = H5User(
             username=user.username,
             nickname=user.nickname,
@@ -196,9 +247,9 @@ class H5UserService:
     
     @classmethod
     async def update_user(
-        cls, 
-        user_id: int, 
-        user: H5UserModel, 
+        cls,
+        user_id: int,
+        user: H5UserModel,
         db: AsyncSession = Depends(get_db)
     ) -> Optional[H5UserDetailModel]:
         """
@@ -240,8 +291,8 @@ class H5UserService:
     
     @classmethod
     async def delete_user(
-        cls, 
-        user_id: int, 
+        cls,
+        user_id: int,
         db: AsyncSession = Depends(get_db)
     ) -> bool:
         """
@@ -263,9 +314,9 @@ class H5UserService:
     
     @classmethod
     async def change_user_status(
-        cls, 
-        user_id: str, 
-        status: str, 
+        cls,
+        user_id: str,
+        status: str,
         db: AsyncSession = Depends(get_db)
     ) -> bool:
         """
@@ -292,8 +343,8 @@ class H5UserService:
     
     @classmethod
     async def user_checkin(
-        cls, 
-        user_id: int, 
+        cls,
+        user_id: int,
         db: AsyncSession = Depends(get_db)
     ) -> Dict[str, Any]:
         """
@@ -386,9 +437,9 @@ class H5UserService:
     
     @classmethod
     async def update_user_mood(
-        cls, 
-        user_id: int, 
-        mood: str, 
+        cls,
+        user_id: int,
+        mood: str,
         db: AsyncSession = Depends(get_db)
     ) -> bool:
         """
@@ -415,10 +466,10 @@ class H5UserService:
     
     @classmethod
     async def create_user_mood(
-        cls, 
-        user_id: int, 
-        content: str, 
-        status: str, 
+        cls,
+        user_id: int,
+        content: str,
+        status: str,
         db: AsyncSession = Depends(get_db)
     ) -> Dict[str, Any]:
         """
@@ -464,10 +515,10 @@ class H5UserService:
     
     @classmethod
     async def get_user_moods(
-        cls, 
-        user_id: Optional[int] = None, 
-        page_num: int = 1, 
-        page_size: int = 10, 
+        cls,
+        user_id: Optional[int] = None,
+        page_num: int = 1,
+        page_size: int = 10,
         status: Optional[str] = None,
         db: AsyncSession = Depends(get_db)
     ) -> Tuple[List[Dict[str, Any]], int]:
@@ -515,10 +566,10 @@ class H5UserService:
     
     @classmethod
     async def create_payment_order(
-        cls, 
-        user_id: int, 
-        amount: int, 
-        pay_type: str, 
+        cls,
+        user_id: int,
+        amount: int,
+        pay_type: str,
         db: AsyncSession = Depends(get_db)
     ) -> Dict[str, Any]:
         """
@@ -579,8 +630,8 @@ class H5UserService:
     
     @classmethod
     async def check_payment_status(
-        cls, 
-        order_no: str, 
+        cls,
+        order_no: str,
         db: AsyncSession = Depends(get_db)
     ) -> Dict[str, Any]:
         """
@@ -671,3 +722,68 @@ class H5UserService:
         await RedisUtil.delete(redis_key)
         
         return True
+
+    @classmethod
+    async def register(
+        cls,
+        user: H5UserRegisterModel,
+        db: AsyncSession = Depends(get_db)
+    ) -> H5UserDetailModel:
+        """
+        用户注册
+        """
+        # 检查用户名是否已存在
+        stmt = select(H5User).where(H5User.username == user.username)
+        result = await db.execute(stmt)
+        existing_user = result.scalars().first()
+        
+        if existing_user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="用户名已存在"
+            )
+        
+        # 生成随机昵称
+        if not user.nickname:
+            random_suffix = ''.join(random.choices(string.ascii_letters + string.digits, k=8))
+            user.nickname = f"{user.username}_{random_suffix}"
+        
+        # 创建用户，注意不要指定 user_id，让数据库自动生成
+        new_user = H5User(
+            username=user.username,
+            nickname=user.nickname,
+            password=user.password,  # 实际应用中需要加密
+            email=user.email,
+            phone=user.phone,
+            avatar=user.avatar,
+            status=user.status,
+            bind_type=user.bind_type,
+            pay_type=user.pay_type,
+            register_time=datetime.now(),
+            exp_points=0,
+            level=1,
+            level_name=cls.LEVEL_CONFIG[1]["name"],
+            checkin_days=0,
+            continuous_checkin_days=0,
+            create_time=datetime.now(),
+            update_time=datetime.now()
+        )
+        
+        db.add(new_user)
+        await db.commit()
+        await db.refresh(new_user)
+        
+        # 转换为DTO
+        user_detail = H5UserDetailModel.model_validate(new_user)
+        
+        # 生成字符串格式的用户ID
+        string_id = cls.generate_string_id()
+        # 在DTO中使用字符串ID，但不保存到数据库
+        user_detail.user_id = string_id
+        
+        # 确保register_time字段被赋值
+        user_detail.register_time = new_user.register_time
+        # 确保create_time字段被赋值
+        user_detail.create_time = new_user.create_time
+        
+        return user_detail

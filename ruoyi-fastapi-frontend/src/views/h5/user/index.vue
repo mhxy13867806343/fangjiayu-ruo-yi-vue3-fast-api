@@ -363,7 +363,7 @@ onMounted(() => {
       </el-table-column>
       <el-table-column label="等级" align="center" width="100">
         <template #default="scope">
-          LV{{ scope.row.level }} ({{ getLevelName(scope.row.level) }})
+          LV{{ scope.row.level }}
         </template>
       </el-table-column>
       <el-table-column label="签到天数" align="center" width="100">
@@ -374,7 +374,6 @@ onMounted(() => {
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="心情" align="center" prop="mood" :show-overflow-tooltip="true" />
       <el-table-column label="当前IP" align="center" prop="loginIp" />
       <el-table-column label="当前状态" align="center" prop="status" >
         <template #default="scope">

@@ -28,6 +28,10 @@ RuoYi-Vue3-FastAPI是一套全部开源的快速开发平台，毫无保留给�
   - GitHub仓库地址：https://github.com/insistence/Dash-FastAPI-Admin
 * 特别鸣谢：<u>[RuoYi-Vue3](https://github.com/yangzongzhuan/RuoYi-Vue3)</u>
 
+## 项目来源说明
+
+本项目基于开源项目 [RuoYi-Vue3-FastAPI](https://github.com/insistence/RuoYi-Vue3-FastAPI) 二次开发，原始仓库地址：https://github.com/insistence/RuoYi-Vue3-FastAPI
+
 ## 内置功能
 
 1.  用户管理：用户是系统操作者，该功能主要完成系统用户配置。

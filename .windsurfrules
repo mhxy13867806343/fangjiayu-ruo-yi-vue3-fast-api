@@ -1,0 +1,230 @@
+当前这个项目的回答：请使用中文，不要用英文回答。
+注意，如果项目中前后端都 有类似的功能或者逻辑 ，请参考
+比如 后端用户注册有这个功能了，现在要加一个类似 的，就参与即可
+比如 前端有一个搜索的，另一个页面也是有搜索的，就参与即可
+我这边 会准备一个比如 image之类的文档或者在项目中给出ooc.md说明是需求文档，需要按照ooc.md文档进行
+操作，当你实现完成之后，请帮我进行测试，测试通过后，我再帮你提交，
+如果在测试过程中，遇到有问题，请帮我修复，直到测试通过为止，
+如果之前的功能或者逻辑有问题，请帮我修复，直到测试通过为止
+如果之前的逻辑或者功能没有问题，但是有一些地方有问题，请帮我修复，直到测试通过为止
+如果之前的功能或者逻辑没有任何问题，请自动帮我git commit，提交，git push，完成
+git commit -m“这边需要你给我描述一下”,然后git push,完成
+当有人提交代码后，需要告诉我，是否要拉取代码，如果是，请拉取，如果不是，不用拉取
+当项目 不管是前端或者后端（之前别人创建的文件，不用处理，只参与），我创建的文件，如果出现逻辑
+类似的，进行共用实现，前端如果 使用vue3.2+使用共用的hooks,后端使用共用的utils_service,这个条件是测试通过，才能进行合成共用的
+如果后端的代码 中没有自动迁移数据库的，当后端模型里面加入的字段时，那么对应 的数据库这边需要进行添加对应 的字段
+如果你给的代码有问题，请参考github 因为可以打开联网的icon，去github上搜索
+如果后端语言的框架 ，比如 python 3.10+以，像if 之类的采用类match这种 语法，
+如 if xxx:
+      xxxx
+换成 match xxx:
+      case xxx:
+      xxxx
+      case _:
+        xxx
+如果项目中有建议的话，需要提示我是否需要使用，如果否，就由你帮我实现，否则给出相关的参与，如网站
+当我给出occ.md文档时，请参考文档，文档中如果有不合理的地方，可以指出来，如果需要修改，请帮我修改，直到测试通过为止
+当上一次修改的问题，再次出现时，需要帮我修改，直到测试通过为止，
+当之前的功能和逻辑没有任何问题时，自动帮我git commit，提交，git push，完成
+当我输入的一个需求，如前端方面的，可以向我推荐npm 或者 github上面 名字及相关链接方式，然后可以跳转去查看需要，
+如果这个开源项目是符合现在这个项目的话， 进行安装相关的依赖方式
+
+当实现一个功能 ，不管是前端，还是后端，均要加上对应的注释，如下
+def current(k,v,arr):
+'''
+    k: key 当前这个key  
+    v: value, 当前这个值
+    arr: arr 当前这个数组
+    这种注释
+'''
+    # 代码注释
+    if xxx:
+        。。。。
+
+前端项目中，如果项目里面有ts的，那么按ts方式的逻辑实现，否则按js方式的逻辑实现
+
+
+
+---
+
+### 需求文档处理规范 (适配任意文档名称)
+
+#### 一、文档识别机制
+**1. 动态检测规则**
+```python
+# utils/doc_detector.py
+def find_requirement_doc(project_root: str) -> Optional[Path]:
+    """
+    自动识别项目需求文档
+    
+    :param project_root: 项目根目录路径
+    :return: 需求文档路径或None
+    """
+    patterns = [
+        "ooc.md", "oc.md", "req*.md", 
+        "requirements.md", "spec.md"
+    ]
+    for p in patterns:
+        found = list(Path(project_root).glob(p))
+        if found:
+            return found[0]
+    return None
+```
+
+**2. 配置示例**
+```yaml
+# .doccheck.yml
+document_rules:
+  primary_names:
+    - "ooc.md"
+    - "oc.md"
+  fallback_patterns:
+    - "REQUIREMENTS*.md"
+    - "需求文档*.md"
+```
+
+#### 二、文档验证流程
+**1. 内容结构检查**
+```markdown
+✅ 强制检查项：
+- [ ] 功能需求段包含"功能描述"、"输入输出"、"边界条件"三个子项
+- [ ] 每个需求项有唯一ID（格式：REQ-XXX）
+- [ ] 包含版本变更记录
+
+❎ 常见问题处理：
+1. 发现未定义术语 → 生成术语表建议
+2. 缺少验收标准 → 自动补充模板
+3. 需求ID重复 → 重新编号
+```
+
+**2. 文档解析示例**
+```python
+# utils/doc_parser.py
+class RequirementDoc:
+    def __init__(self, doc_path: str):
+        """
+        需求文档解析器
+        
+        :param doc_path: 文档路径（支持任意文件名）
+        """
+        self.sections = self._parse_markdown(doc_path)
+        
+    def validate(self) -> dict:
+        """ 返回问题报告 """
+        issues = []
+        if '功能需求' not in self.sections:
+            issues.append("缺少核心功能需求段")
+            
+        # 检查需求项ID唯一性
+        req_ids = [item['id'] for item in self.get_requirements()]
+        if len(req_ids) != len(set(req_ids)):
+            issues.append("存在重复需求ID")
+            
+        return {"status": "ok" if not issues else "error", "issues": issues}
+```
+
+#### 三、开发实施联动
+**1. 需求追踪矩阵**
+```markdown
+| 需求ID   | 后端实现                            | 前端实现                  | 测试用例         |
+|----------|-----------------------------------|--------------------------|------------------|
+| REQ-023  | UserService.update_profile()      | ProfileEditor.vue        | test_user_profile|
+| REQ-024  | FileUploadController               | useFileUpload.ts         | test_upload_api  |
+```
+
+**2. 自动化关联**
+```bash
+# 提交时自动检测文档变更
+if git diff --name-only HEAD^ | grep -E 'oc\.md|ooc\.md'; then
+  echo "检测到需求文档变更，重新验证..."
+  python utils/doc_parser.py --validate
+fi
+```
+
+#### 四、异常处理机制
+**1. 文档问题修复流程**
+```mermaid
+graph TD
+    A[检测文档问题] --> B{严重级别}
+    B -->|阻断性错误| C[立即停止构建]
+    B -->|警告| D[记录问题并继续]
+    C --> E[生成修复建议]
+    E --> F[创建issue并分配]
+```
+
+**2. 智能修复建议**
+```python
+# 当检测到缺少验收标准时自动生成
+def generate_acceptance_criteria(req_desc: str) -> list:
+    """ 根据需求描述生成验收标准建议 """
+    template = [
+        "正常流测试：符合主要场景",
+        "异常流测试：参数无效/超限情况",
+        f"性能要求：{req_desc}响应时间<1s"
+    ]
+    return template
+```
+
+#### 五、多文档名支持示例
+**1. 前端组件文档绑定**
+```typescript
+// src/features/user/ProfileEditor.vue
+/**
+ * 需求追踪: 
+ * @see oc.md#REQ-023 
+ * @see oc.md#用户资料编辑
+ */
+export default defineComponent({
+  // 组件实现...
+})
+```
+
+**2. 后端服务注释规范**
+```python
+# services/user_service.py
+class UserService:
+    def update_profile(self, data: dict):
+        """
+        实现需求文档 REQ-023 的用户资料编辑功能
+        对应文档章节: oc.md#用户资料编辑
+        """
+        # 实现逻辑...
+```
+
+---
+
+### 执行示例
+**场景：文档名称变更为 `项目需求v2.md`**
+
+1. **自动识别**
+```bash
+>>> python utils/doc_detector.py
+找到需求文档: /project/docs/项目需求v2.md
+```
+
+2. **验证流程**
+```json
+// 验证结果
+{
+  "status": "error",
+  "issues": [
+    "需求项 REQ-025 缺少验收标准",
+    "术语 '用户画像' 未在术语表中定义"
+  ],
+  "suggestions": {
+    "REQ-025": ["添加性能测试要求", "补充异常情况处理"],
+    "术语表": ["用户画像: 用户特征的综合描述"]
+  }
+}
+```
+
+3. **开发实施**
+```markdown
+[系统提示] 
+检测到需求变更，请确认以下关联影响：
+- 需要修改 UserService 的验证逻辑
+- 新增 test_profile_validation 测试用例
+- 更新前端表单校验规则
+```
+
+是否需要为您当前项目的实际文档结构设计定制化解析方案？请提供具体文档或描述需求特征，我将生成针对性实现代码。
